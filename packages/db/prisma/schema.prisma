@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+model User {
+  id    Int     @id @default(autoincrement())
+  email String  @unique
+  name  String
+  password String?
+}
+
+enum FileStatus {
+  PENDING
+  PROCESSING
+  UPLOADING
+  COMPLETED
+  FAILED
+}
+
+model File {
+  id         Int         @id @default(autoincrement())
+
+  exam       String
+  className  String
+  subject    String
+
+  fileName   String
+  fileSize   Int?
+  mimeType   String?
+
+  s3Key      String      @unique
+
+  status     FileStatus  @default(PENDING)
+  year       Int?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  embeddings PageEmbedding[]
+}
+
+model BookChapter {
+  id          Int      @id
+  board       String
+  className   String
+  subjectName String
+  bookName    String
+  language    String
+  chapterName String
+  pdfUrl      String
+  status      String
+
+  embeddings  PageEmbedding[]
+
+  @@index([board])
+  @@index([className])
+  @@index([subjectName])
+  @@index([bookName])
+  @@index([language])
+
+  @@index([board, className])
+  @@index([board, className, subjectName])
+  @@index([board, className, subjectName, bookName])
+}
+
+model BookCover {
+  id          Int      @id
+  board       String
+  className   String   @map("class_name")
+  subjectName String   @map("subject_name")
+  bookName    String   @map("book_name")
+  coverUrl    String   @map("CoverURL")
+
+
+  @@unique([board, className, subjectName, bookName])
+
+  @@index([board, className, subjectName, bookName])
+  @@map("BookCover")
+}
+
+model PageEmbedding {
+  id         String   @id @default(cuid())
+
+  fileId     Int?
+  file       File?        @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  chapterId  Int?
+  chapter    BookChapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  pageNumber Int
+  chunkIndex Int
+  text       String       @db.Text
+
+  embedding  Unsupported("vector(1024)")
+
+  createdAt  DateTime     @default(now())
+
+  @@index([fileId])
+  @@index([chapterId])
+}

@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@source "../../../packages/ui/src";
+
+@utility no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
