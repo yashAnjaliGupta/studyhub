@@ -8,6 +8,8 @@ import Link from "next/link";
 import { getPaperUrl, ensureBookChaptersInS3 } from "../../../../../lib/s3";
 import { processDocumentEmbeddings } from "../../../../../lib/embeddings";
 
+import type { Metadata } from "next";
+
 const client = new PrismaClient();
 type Props = {
   params: Promise<{
@@ -17,6 +19,45 @@ type Props = {
     Book: string;
   }>;
 };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { Exam: rawExam, Class: rawClass, Subject: rawSubject, Book: rawBook } = await params;
+  const Exam = decodeURIComponent(rawExam);
+  const className = decodeURIComponent(rawClass);
+  const subject = decodeURIComponent(rawSubject);
+  const bookName = decodeURIComponent(rawBook);
+
+  const title = `${bookName} - ${subject} (${Exam} ${className}) PDF | StudyHub`;
+  const description = `Read and download ${bookName} for ${subject}, ${Exam} ${className}. Access full PDF, AI learning assistant, notes, and chapter summaries on StudyHub.`;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const canonicalUrl = `${siteUrl}/${rawExam}/${rawClass}/${rawSubject}/${rawBook}`;
+
+  return {
+    title,
+    description,
+    keywords: [
+      `${bookName} PDF download`,
+      `${className} ${subject} ${bookName}`,
+      `${Exam} ${subject} question paper`,
+      "StudyHub PDF reader"
+    ],
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      siteName: "StudyHub",
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
+}
 
 export default async function ReaderPage({ params }: Props) {
   const session = await getServerSession(authOptions);
@@ -159,8 +200,38 @@ export default async function ReaderPage({ params }: Props) {
     );
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": breadcrumbs.map((crumb, idx) => ({
+      "@type": "ListItem",
+      "position": idx + 1,
+      "name": crumb.label,
+      "item": crumb.href === "/" ? `${siteUrl}/` : `${siteUrl}${crumb.href}`
+    }))
+  };
+
+  const documentJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "DigitalDocument",
+    "name": decodeURIComponent(Book),
+    "educationalLevel": decodeURIComponent(Class),
+    "about": decodeURIComponent(Subject),
+    "fileFormat": "application/pdf",
+    "url": `${siteUrl}/${Exam}/${Class}/${Subject}/${Book}`
+  };
+
   return (
     <main className="flex min-h-[80dvh] items-center justify-center bg-slate-950 pdf-reader-page">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(documentJsonLd) }}
+      />
       <div className="h-[80dvh] w-full sm:h-auto">
         <div className="bg-blue-700 text-white flex items-center justify-between px-4 h-12 flex-shrink-0">
           <div className="flex items-center min-w-0 overflow-x-auto scrollbar-hide">

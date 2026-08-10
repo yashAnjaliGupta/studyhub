@@ -16,6 +16,8 @@ import Link from "next/link";
 import { GetSubjectIcon } from "../../../lib/getSubjectIcons";
 import PreviousYearPapers from "../../../components/PreviousYearQP";
 
+import type { Metadata } from "next";
+
 const client = new PrismaClient();
 type Props = {
   params: Promise<{
@@ -24,6 +26,43 @@ type Props = {
   }>;
 };
 
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { Exam: rawExam, Class: rawClass } = await params;
+  const Exam = decodeURIComponent(rawExam);
+  const className = decodeURIComponent(rawClass);
+
+  const title = `${Exam} ${className} Previous Year Question Papers & Study Material | StudyHub`;
+  const description = `Access free books, chapter notes, PYQs, and study resources for ${Exam} ${className}. Download previous year question paper PDFs on StudyHub.`;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const canonicalUrl = `${siteUrl}/${rawExam}/${rawClass}`;
+
+  return {
+    title,
+    description,
+    keywords: [
+      `${Exam} ${className} previous year papers`,
+      `${className} PYQ PDF`,
+      `${Exam} ${className} books`,
+      `${className} study materials`,
+      "StudyHub learning"
+    ],
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      siteName: "StudyHub",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
+}
 
 export default async function Page({ params }: Props) {
   const Exam = (await params).Exam
@@ -85,8 +124,38 @@ export default async function Page({ params }: Props) {
     icon: GetSubjectIcon(subject.subjectName),
     color: pickGradient(subject.subjectName, idx),
   }));
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": `${siteUrl}/`
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": Exam,
+        "item": `${siteUrl}/${Exam}`
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": className,
+        "item": `${siteUrl}/${Exam}/${encodeURIComponent(className)}`
+      }
+    ]
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 mb-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
 
       {/* ================= BREADCRUMB ================= */}
 

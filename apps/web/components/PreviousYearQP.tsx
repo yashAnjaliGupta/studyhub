@@ -110,13 +110,42 @@ export default function PreviousYearPapers({ papers }: PreviousYearPapersProps) 
 
 
     if (papers.length === 0) {
-        return (
-            <></>
-        );
+        return <></>;
     }
 
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": `Previous Year Question Papers${Exam ? ` - ${Exam}` : ""}${Class ? ` - ${Class}` : ""}`,
+        "description": `Download and view previous year question papers for ${Exam} ${Class}`,
+        "numberOfItems": papers.length,
+        "itemListElement": sortedSubjects.flatMap(subject => {
+            const subjectPapers = groupedPapers[subject] || {};
+            return Object.values(subjectPapers).flat();
+        }).map((paper, index) => ({
+            "@type": "ListItem",
+            "position": index + 1,
+            "item": {
+                "@type": "DigitalDocument",
+                "name": paper.title,
+                "fileFormat": "application/pdf",
+                "educationalLevel": Class || undefined,
+                "about": paper.subject,
+                "url": `${siteUrl}/${encodeURIComponent(decodeURIComponent(Exam))}/${encodeURIComponent(decodeURIComponent(Class))}/${encodeURIComponent(paper.subject)}/${encodeURIComponent(paper.title)}`
+            }
+        }))
+    };
+
     return (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md mt-20">
+        <section
+            className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md mt-20"
+            aria-labelledby="pyq-section-heading"
+        >
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
             {/* Header */}
             <div className="flex flex-col gap-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-indigo-800 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
@@ -124,7 +153,9 @@ export default function PreviousYearPapers({ papers }: PreviousYearPapersProps) 
                         <FileText className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-white">Previous Year Papers</h2>
+                        <h2 id="pyq-section-heading" className="text-xl font-bold text-white">
+                            Previous Year Papers
+                        </h2>
                         <p className="text-xs text-blue-100 opacity-90">Organized by Subject & Year</p>
                     </div>
                 </div>
@@ -133,12 +164,16 @@ export default function PreviousYearPapers({ papers }: PreviousYearPapersProps) 
                 <div className="flex gap-2">
                     <button
                         onClick={handleExpandAll}
+                        type="button"
+                        aria-label="Expand all subjects and years"
                         className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20 active:scale-95 cursor-pointer"
                     >
                         Expand All
                     </button>
                     <button
                         onClick={handleCollapseAll}
+                        type="button"
+                        aria-label="Collapse all subjects and years"
                         className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20 active:scale-95 cursor-pointer"
                     >
                         Collapse All
@@ -155,12 +190,16 @@ export default function PreviousYearPapers({ papers }: PreviousYearPapersProps) 
                     const totalPapersInSubject = subjectPapers
                         ? Object.values(subjectPapers).reduce((sum, arr) => sum + arr.length, 0)
                         : 0;
+                    const subjectSlug = subject.replace(/\s+/g, "-").toLowerCase();
 
                     return (
                         <div key={subject} className="transition-all duration-300">
                             {/* Subject Header Row */}
                             <button
                                 onClick={() => toggleSubject(subject)}
+                                type="button"
+                                aria-expanded={isSubjectExpanded}
+                                aria-controls={`subject-content-${subjectSlug}`}
                                 className="flex w-full items-center justify-between bg-white px-6 py-4.5 text-left transition hover:bg-slate-50 cursor-pointer group"
                             >
                                 <div className="flex items-center gap-3">
@@ -171,99 +210,114 @@ export default function PreviousYearPapers({ papers }: PreviousYearPapersProps) 
                                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                                         <BookOpen className="h-4 w-4" />
                                     </div>
-                                    <span className="font-semibold text-slate-800 group-hover:text-blue-700">
+                                    <h3 className="font-semibold text-slate-800 group-hover:text-blue-700">
                                         {subject}
-                                    </span>
+                                    </h3>
                                 </div>
                                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-700">
                                     {totalPapersInSubject} {totalPapersInSubject === 1 ? "Paper" : "Papers"}
                                 </span>
                             </button>
 
-                            {/* Years List Container */}
-                            {isSubjectExpanded && (
-                                <div className="border-t border-slate-100/50 bg-slate-50/50 px-6 py-3 space-y-2.5">
-                                    {years.map(year => {
-                                        const yearKey = `${subject}-${year}`;
-                                        const isYearExpanded = !!expandedYears[yearKey];
-                                        const yearPapers = groupedPapers[subject]?.[year] || [];
+                            {/* Years List Container - Kept in DOM for crawler link discovery */}
+                            <div
+                                id={`subject-content-${subjectSlug}`}
+                                role="region"
+                                aria-label={`${subject} Previous Year Papers`}
+                                className={isSubjectExpanded ? "border-t border-slate-100/50 bg-slate-50/50 px-6 py-3 space-y-2.5" : "hidden"}
+                            >
+                                {years.map(year => {
+                                    const yearKey = `${subject}-${year}`;
+                                    const isYearExpanded = !!expandedYears[yearKey];
+                                    const yearPapers = groupedPapers[subject]?.[year] || [];
+                                    const yearSlug = `${subjectSlug}-${year}`;
 
-                                        return (
-                                            <div
-                                                key={yearKey}
-                                                className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm"
+                                    return (
+                                        <div
+                                            key={yearKey}
+                                            className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm"
+                                        >
+                                            {/* Year Sub-Header Row */}
+                                            <button
+                                                onClick={() => toggleYear(subject, year)}
+                                                type="button"
+                                                aria-expanded={isYearExpanded}
+                                                aria-controls={`year-content-${yearSlug}`}
+                                                className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-slate-50/80 cursor-pointer group"
                                             >
-                                                {/* Year Sub-Header Row */}
-                                                <button
-                                                    onClick={() => toggleYear(subject, year)}
-                                                    className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-slate-50/80 cursor-pointer group"
-                                                >
-                                                    <div className="flex items-center gap-2.5">
-                                                        <ChevronRight
-                                                            className={`h-4.5 w-4.5 text-slate-400 transition-transform duration-300 group-hover:text-indigo-600 ${isYearExpanded ? "rotate-90 text-indigo-600" : ""
-                                                                }`}
-                                                        />
-                                                        <Calendar className="h-4 w-4 text-indigo-500" />
-                                                        <span className="text-sm font-semibold text-slate-700 group-hover:text-indigo-700">
-                                                            {year === "Other" ? "Other Papers" : `Year ${year}`}
-                                                        </span>
-                                                    </div>
-                                                    <span className="rounded-full bg-indigo-50/70 px-2 py-0.5 text-xs font-semibold text-indigo-600">
-                                                        {yearPapers.length}
+                                                <div className="flex items-center gap-2.5">
+                                                    <ChevronRight
+                                                        className={`h-4.5 w-4.5 text-slate-400 transition-transform duration-300 group-hover:text-indigo-600 ${isYearExpanded ? "rotate-90 text-indigo-600" : ""
+                                                            }`}
+                                                    />
+                                                    <Calendar className="h-4 w-4 text-indigo-500" />
+                                                    <span className="text-sm font-semibold text-slate-700 group-hover:text-indigo-700">
+                                                        {year === "Other" ? "Other Papers" : `Year ${year}`}
                                                     </span>
-                                                </button>
+                                                </div>
+                                                <span className="rounded-full bg-indigo-50/70 px-2 py-0.5 text-xs font-semibold text-indigo-600">
+                                                    {yearPapers.length}
+                                                </span>
+                                            </button>
 
-                                                {/* Papers List for Year */}
-                                                {isYearExpanded && (
-                                                    <div className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50/30">
-                                                        {yearPapers.map(paper => (
-                                                            <div
-                                                                key={paper.title}
-                                                                className="flex flex-col gap-3.5 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-white transition-colors"
-                                                            >
-                                                                {/* Paper Info */}
-                                                                <div className="flex items-start gap-3 min-w-0">
-                                                                    <div className="mt-0.5 flex h-7.5 w-7.5 flex-shrink-0 items-center justify-center rounded bg-slate-100 text-slate-600">
-                                                                        <FileText className="h-4 w-4" />
-                                                                    </div>
-                                                                    <div className="min-w-0">
-                                                                        <h4 className="text-sm font-medium text-slate-800 truncate" title={paper.title}>
-                                                                            {paper.title}
-                                                                        </h4>
-                                                                        <p className="text-xs text-slate-400">
-                                                                            {subject} • {year === "Other" ? "N/A" : year}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Actions */}
-                                                                <div className="flex gap-2 flex-shrink-0">
-                                                                    <Link
-                                                                        href={`/${encodeURIComponent(decodeURIComponent(Exam))}/${encodeURIComponent(decodeURIComponent(Class))}/${encodeURIComponent(paper.subject)}/${encodeURIComponent(paper.title)}`}
-                                                                    >
-                                                                        <button className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 active:scale-95 cursor-pointer">
-                                                                            <Eye className="h-3.5 w-3.5" />
-                                                                            <span>View</span>
-                                                                        </button>
-                                                                    </Link>
-                                                                    <button onClick={() => handleDownloadClick(paper.key, paper.title)} className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 active:scale-95 cursor-pointer">
-                                                                        <Download className="h-3.5 w-3.5" />
-                                                                        <span>Download</span>
-                                                                    </button>
-                                                                </div>
+                                            {/* Papers List for Year - Kept in DOM for crawler link discovery */}
+                                            <div
+                                                id={`year-content-${yearSlug}`}
+                                                role="region"
+                                                aria-label={`${subject} ${year} Papers`}
+                                                className={isYearExpanded ? "divide-y divide-slate-100 border-t border-slate-100 bg-slate-50/30" : "hidden"}
+                                            >
+                                                {yearPapers.map(paper => (
+                                                    <div
+                                                        key={paper.title}
+                                                        className="flex flex-col gap-3.5 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-white transition-colors"
+                                                    >
+                                                        {/* Paper Info */}
+                                                        <div className="flex items-start gap-3 min-w-0">
+                                                            <div className="mt-0.5 flex h-7.5 w-7.5 flex-shrink-0 items-center justify-center rounded bg-slate-100 text-slate-600">
+                                                                <FileText className="h-4 w-4" />
                                                             </div>
-                                                        ))}
+                                                            <div className="min-w-0">
+                                                                <h4 className="text-sm font-medium text-slate-800 truncate" title={paper.title}>
+                                                                    {paper.title}
+                                                                </h4>
+                                                                <p className="text-xs text-slate-400">
+                                                                    {subject} • {year === "Other" ? "N/A" : year}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Actions */}
+                                                        <div className="flex gap-2 flex-shrink-0">
+                                                            <Link
+                                                                href={`/${encodeURIComponent(decodeURIComponent(Exam))}/${encodeURIComponent(decodeURIComponent(Class))}/${encodeURIComponent(paper.subject)}/${encodeURIComponent(paper.title)}`}
+                                                                className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 active:scale-95 cursor-pointer"
+                                                                aria-label={`View ${paper.title} question paper`}
+                                                            >
+                                                                <Eye className="h-3.5 w-3.5" />
+                                                                <span>View</span>
+                                                            </Link>
+                                                            <button
+                                                                onClick={() => handleDownloadClick(paper.key, paper.title)}
+                                                                type="button"
+                                                                className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 active:scale-95 cursor-pointer"
+                                                                aria-label={`Download ${paper.title} PDF`}
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
+                                                                <span>Download</span>
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                )}
+                                                ))}
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     );
                 })}
             </div>
-        </div>
+        </section>
     );
 }
