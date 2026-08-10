@@ -1,4 +1,4 @@
-import PdfReaderLayout from "../../../../../components/PDFViewer/PdfReaderLayout";
+import PdfReaderClientWrapper from "../../../../../components/PDFViewer/PdfReaderClientWrapper";
 import { ChevronRight } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../api/auth/[...nextauth]/route";
@@ -267,7 +267,7 @@ export default async function ReaderPage({ params }: Props) {
             })}
           </div>
         </div>
-        <PdfReaderLayout Book={book} isLoggedIn={isLoggedIn} />
+        <PdfReaderClientWrapper Book={book} isLoggedIn={isLoggedIn} />
       </div>
     </main>
   );
