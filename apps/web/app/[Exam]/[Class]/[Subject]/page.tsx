@@ -16,16 +16,57 @@ import Link from "next/link";
 import DownloadButton from "../../../../components/DownloadButton";
 import PreviousYearPapers from "../../../../components/PreviousYearQP";
 
+import type { Metadata } from "next";
+
 const client = new PrismaClient();
 type Props = {
   params: Promise<{
     Exam: string;
     Class: string;
-    Subject: string
+    Subject: string;
   }>;
 };
 
-export default async function ({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { Exam: rawExam, Class: rawClass, Subject: rawSubject } = await params;
+  const Exam = decodeURIComponent(rawExam);
+  const className = decodeURIComponent(rawClass);
+  const subject = decodeURIComponent(rawSubject);
+
+  const title = `${subject} Books, PYQs & Notes for ${Exam} ${className} | StudyHub`;
+  const description = `Download free ${subject} books, previous year question paper PDFs, chapter notes, and learning resources for ${Exam} ${className} on StudyHub.`;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const canonicalUrl = `${siteUrl}/${rawExam}/${rawClass}/${rawSubject}`;
+
+  return {
+    title,
+    description,
+    keywords: [
+      `${className} ${subject} PYQ PDF`,
+      `${Exam} ${className} ${subject} books`,
+      `${subject} notes ${className}`,
+      `${Exam} ${subject} question papers`,
+      "StudyHub learning"
+    ],
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      siteName: "StudyHub",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
+}
+
+export default async function Page({ params }: Props) {
   const Exam = (await params).Exam
   const className = decodeURIComponent((await params).Class)
   const subject = decodeURIComponent((await params).Subject)
@@ -87,10 +128,44 @@ export default async function ({ params }: Props) {
       key: paper.s3Key,
     }
   })
-  // console.log(papersData)
-  // console.log(books)
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": `${siteUrl}/`
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": Exam,
+        "item": `${siteUrl}/${Exam}`
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": className,
+        "item": `${siteUrl}/${Exam}/${encodeURIComponent(className)}`
+      },
+      {
+        "@type": "ListItem",
+        "position": 4,
+        "name": subject,
+        "item": `${siteUrl}/${Exam}/${encodeURIComponent(className)}/${encodeURIComponent(subject)}`
+      }
+    ]
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 pl-10 pr-10 mb-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <section className="mx-auto mt-6 max-w-7xl px-4">
         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
           <Home className="h-4 w-4" />
