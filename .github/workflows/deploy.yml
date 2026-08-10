@@ -1,12 +1,15 @@
 name: Build & Deploy to AWS ECR / ECS
+
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY || 'studyhub' }}
+  AWS_REGION: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY != '' && secrets.ECR_REPOSITORY || 'studyhub' }}
+
 jobs:
   build-and-push:
     name: Build & Push Docker Image
@@ -14,17 +17,21 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -34,16 +41,13 @@ jobs:
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-          build-args: |
-            NEXT_PUBLIC_CDN_URL=${{ secrets.NEXT_PUBLIC_CDN_URL || 'https://cdn.studyhub.yashguptaiiit.in/' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
   deploy-to-ecs:
     name: Deploy to AWS ECS
     needs: build-and-push
     runs-on: ubuntu-latest
-    # Set to true when ECS cluster and service details are configured in repository secrets
-    if: ${{ secrets.ECS_CLUSTER != '' && secrets.ECS_SERVICE != '' }}
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -51,10 +55,20 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
       - name: Force ECS Service Deployment
+        env:
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
         run: |
-          aws ecs update-service \
-            --cluster ${{ secrets.ECS_CLUSTER }} \
-            --service ${{ secrets.ECS_SERVICE }} \
-            --force-new-deployment \
-            --region ${{ env.AWS_REGION }}
+          if [ -n "$ECS_CLUSTER" ] && [ -n "$ECS_SERVICE" ]; then
+            echo "Deploying to ECS Cluster: $ECS_CLUSTER, Service: $ECS_SERVICE..."
+            aws ecs update-service \
+              --cluster "$ECS_CLUSTER" \
+              --service "$ECS_SERVICE" \
+              --force-new-deployment \
+              --region ${{ env.AWS_REGION }}
+          else
+            echo "ECS_CLUSTER or ECS_SERVICE secret is not configured. Skipping ECS update."
+          fi
+
