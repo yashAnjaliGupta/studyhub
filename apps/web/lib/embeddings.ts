@@ -1,7 +1,6 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import "pdfjs-dist/legacy/build/pdf.worker.mjs";
 import { PrismaClient } from "@repo/db/client";
+
 
 export function sanitizeText(text: string): string {
   if (!text) return "";
@@ -146,48 +145,18 @@ export function chunkText(pageText: string, maxChunkSize = 800, overlap = 100): 
 }
 
 export async function extractPdfPagesText(pdfBuffer: Buffer): Promise<PageText[]> {
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data: pdfBuffer });
+  const pdfResult = await parser.getText();
+
   const pages: PageText[] = [];
 
-  const uint8Array = new Uint8Array(
-    pdfBuffer.buffer,
-    pdfBuffer.byteOffset,
-    pdfBuffer.byteLength
-  );
-
-  const loadingTask = pdfjsLib.getDocument({
-    data: uint8Array,
-    useSystemFonts: true,
-    disableFontFace: true,
-  });
-
-  const pdfDoc = await loadingTask.promise;
-
-  for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-    const page = await pdfDoc.getPage(pageNum);
-    const textContent = await page.getTextContent();
-
-    let pageText = "";
-    let lastY: number | null = null;
-
-    for (const item of textContent.items) {
-      if ("str" in item) {
-        const transform = (item as any)?.transform;
-        const currentY = Array.isArray(transform) && transform.length >= 6 ? transform[5] : null;
-        if (currentY !== null && lastY !== null && Math.abs(lastY - currentY) > 5) {
-          pageText += "\n";
-        }
-        pageText += sanitizeText(item.str) + " ";
-        if (currentY !== null) {
-          lastY = currentY;
-        }
-      }
-    }
-
-    const trimmed = sanitizeText(pageText).trim();
+  for (const pageItem of pdfResult.pages || []) {
+    const trimmed = sanitizeText(pageItem.text || "").trim();
     const chunks = chunkText(trimmed);
 
     pages.push({
-      pageNumber: pageNum,
+      pageNumber: pageItem.num,
       text: trimmed,
       chunks,
     });
