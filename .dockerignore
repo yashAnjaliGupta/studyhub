@@ -21,6 +21,10 @@ build
 .env
 .env.*
 !.env.example
+.env
+**/.env
+**/.env.*
+
 
 # GitHub & IDE configs
 .github
