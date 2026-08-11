@@ -145,6 +145,19 @@ export function chunkText(pageText: string, maxChunkSize = 800, overlap = 100): 
 }
 
 export async function extractPdfPagesText(pdfBuffer: Buffer): Promise<PageText[]> {
+  if (typeof globalThis.DOMMatrix === "undefined") {
+    try {
+      const canvas = await import("@napi-rs/canvas");
+      if (canvas.DOMMatrix) (globalThis as any).DOMMatrix = canvas.DOMMatrix;
+      if (canvas.DOMPoint) (globalThis as any).DOMPoint = canvas.DOMPoint;
+      if (canvas.DOMRect) (globalThis as any).DOMRect = canvas.DOMRect;
+      if (canvas.Path2D) (globalThis as any).Path2D = canvas.Path2D;
+      if (canvas.ImageData) (globalThis as any).ImageData = canvas.ImageData;
+    } catch (e) {
+      console.warn("[Embeddings] Could not load @napi-rs/canvas polyfill:", e);
+    }
+  }
+
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: pdfBuffer });
   const pdfResult = await parser.getText();
