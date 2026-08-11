@@ -13,7 +13,7 @@ export const s3 = new S3Client({
 });
 
 export function getPaperUrl(s3Key: string): string {
-  const cdnUrl = process.env.NEXT_PUBLIC_CDN_URL || process.env.CDN_URL;
+  const cdnUrl = process.env.NEXT_PUBLIC_CDN_URL || "https://cdn.studyhub.yashguptaiiit.in/";
   const cleanKey = s3Key.replace(/^\/+/, "");
 
   if (cdnUrl) {

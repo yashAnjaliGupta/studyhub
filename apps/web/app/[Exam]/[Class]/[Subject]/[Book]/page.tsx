@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = `${bookName} - ${subject} (${Exam} ${className}) PDF | StudyHub`;
   const description = `Read and download ${bookName} for ${subject}, ${Exam} ${className}. Access full PDF, AI learning assistant, notes, and chapter summaries on StudyHub.`;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.yashguptaiiit.in";
   const canonicalUrl = `${siteUrl}/${rawExam}/${rawClass}/${rawSubject}/${rawBook}`;
 
   return {
@@ -120,7 +120,7 @@ export default async function ReaderPage({ params }: Props) {
       pdfUrl: s3Chapters[idx]?.pdfUrl || ch.pdfUrl,
       status: ch.status,
     }));
-    console.log(book);
+    // console.log(book);
 
     // Check chapters for PENDING status and trigger vector embeddings page-by-page
     for (const ch of dbChapters) {
