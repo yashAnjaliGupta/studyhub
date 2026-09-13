@@ -104,7 +104,12 @@ export default async function Page({ params }: Props) {
         bcv."id"
     `;
 
-  const papersData = await client.file.findMany({
+  const papersData: {
+    fileName: string;
+    subject: string;
+    year: number | null;
+    s3Key: string;
+  }[] = await client.file.findMany({
     where: {
       exam: Exam,
       className: className,
@@ -120,7 +125,7 @@ export default async function Page({ params }: Props) {
       year: "desc",
     },
   });
-  const papers = papersData.map(paper => {
+  const papers = papersData.map((paper) => {
     return {
       title: paper.fileName,
       subject: paper.subject,
