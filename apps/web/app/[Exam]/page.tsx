@@ -28,7 +28,7 @@ export default async function Page({ params }: Props) {
     notFound();
   }
 
-  const classes = await client.bookChapter.findMany({
+  const classes: { className: string }[] = await client.bookChapter.findMany({
     select: {
       className: true
     },
@@ -41,7 +41,7 @@ export default async function Page({ params }: Props) {
     }
   });
 
-  const papers = await client.file.findMany({
+  const papers: { className: string }[] = await client.file.findMany({
     select: {
       className: true
     },

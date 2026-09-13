@@ -68,7 +68,7 @@ export default async function Page({ params }: Props) {
   const Exam = (await params).Exam
   const className = decodeURIComponent((await params).Class)
 
-  const subjects = await client.bookChapter.findMany({
+  const subjects: { subjectName: string }[] = await client.bookChapter.findMany({
     select: {
       subjectName: true,
     },
@@ -78,7 +78,12 @@ export default async function Page({ params }: Props) {
     }
   });
 
-  const dbPapers = await client.file.findMany({
+  const dbPapers: {
+    fileName: string;
+    subject: string;
+    year: number | null;
+    s3Key: string;
+  }[] = await client.file.findMany({
     where: {
       exam: Exam,
       className: className,

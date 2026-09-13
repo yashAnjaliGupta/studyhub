@@ -31,7 +31,12 @@ export async function GET(req: NextRequest) {
     );
 
     // 2. Perform parallel DB lookups
-    const [dbClasses, dbSubjects, dbBooks, dbChapters] = await Promise.all([
+    const [dbClasses, dbSubjects, dbBooks, dbChapters]: [
+      { board: string; className: string }[],
+      { board: string; className: string; subjectName: string }[],
+      { board: string; className: string; subjectName: string; bookName: string }[],
+      { board: string; className: string; subjectName: string; bookName: string; chapterName: string }[],
+    ] = await Promise.all([
       // Distinct Classes
       prisma.bookChapter.findMany({
         where: {

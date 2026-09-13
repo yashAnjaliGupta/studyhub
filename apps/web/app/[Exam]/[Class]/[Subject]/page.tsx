@@ -70,15 +70,13 @@ export default async function Page({ params }: Props) {
   const Exam = (await params).Exam
   const className = decodeURIComponent((await params).Class)
   const subject = decodeURIComponent((await params).Subject)
-  const books = await client.$queryRaw<
-    {
-      id: bigint
-      bookName: string;
-      language: string;
-      CoverURL: string | null;
-      chapters: bigint;
-    }[]
-  >`
+  const books: {
+    id: bigint;
+    bookName: string;
+    language: string;
+    CoverURL: string | null;
+    chapters: bigint;
+  }[] = await client.$queryRaw`
     SELECT
         bcv."id",
         bc."bookName",

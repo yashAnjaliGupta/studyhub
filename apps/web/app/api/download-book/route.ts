@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   try {
     // 1. Fetch all chapters for the specified book
-    const chapters = await prisma.bookChapter.findMany({
+    const chapters: { chapterName: string; pdfUrl: string }[] = await prisma.bookChapter.findMany({
       where: {
         className,
         subjectName,
