@@ -6,6 +6,7 @@ import { authOptions } from "../../../../api/auth/[...nextauth]/route";
 import { PrismaClient } from "@repo/db/client";
 import Link from "next/link";
 import { getPaperUrl, ensureBookChaptersInS3 } from "../../../../../lib/s3";
+import type { BookChapterRecord } from "../../../../../lib/s3";
 import { processDocumentEmbeddings } from "../../../../../lib/embeddings";
 
 import type { Metadata } from "next";
@@ -87,7 +88,7 @@ export default async function ReaderPage({ params }: Props) {
   ];
 
   // 1. Try to find chapters for a book
-  const dbChapters = await client.bookChapter.findMany({
+  const dbChapters: (BookChapterRecord & { status: string })[] = await client.bookChapter.findMany({
     select: {
       id: true,
       board: true,
