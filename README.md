@@ -154,6 +154,48 @@ Run these scripts from the workspace root:
 
 ---
 
+## 📡 Kafka Telemetry Setup
+
+To enable web telemetry production to Apache Kafka:
+
+1. **Start Kafka and Zookeeper (optional, for local development)**:
+   ```bash
+   docker-compose up -d
+   ```
+   This will start ZooKeeper on port 2181 and Kafka on port 9092.
+
+2. **Configure environment variables**:
+   Add the following to your `.env.local` file (create one if it doesn't exist in the workspace root):
+   ```
+   KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+   # Optional: change the topic (defaults to web_telemetry)
+   KAFKA_TOPIC=web_telemetry
+
+   # Optional: Secure Kafka connection (SASL_SSL)
+   # KAFKA_SASL_MECHANISM=SCRAM-SHA-256
+   # KAFKA_SASL_USERNAME=your_username
+   # KAFKA_SASL_PASSWORD=your_password
+   # KAFKA_SSL_CA_LOCATION=path/to/ca.pem  # Relative to project root or absolute
+   ```
+   Ensure `DATABASE_URL` is already set for the database (as per the existing setup).
+
+3. **Run the application**:
+   ```bash
+   npm run dev
+   ```
+   The Next.js app will now collect telemetry events (page views, clicks) and send them to the Kafka topic via the `/api/telemetry` API route.
+
+4. **Verify telemetry is being produced**:
+   - Use the Kafka CLI to consume from the topic:
+     ```bash
+     docker exec -it <kafka-container> kafka-console-consumer --bootstrap-server localhost:9092 --topic web_telemetry --from-beginning
+     ```
+   - You should see JSON events printed as you interact with the app.
+
+5. **Your external Go consumer** can now read from the same topic `web_telemetry` to process the events.
+
+---
+
 ## 🚢 Deployment & CI/CD
 
 StudyHub includes a fully automated GitHub Actions workflow [.github/workflows/deploy.yml](file:///e:/Co-hort/StudyHub/.github/workflows/deploy.yml).

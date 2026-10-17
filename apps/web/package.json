@@ -25,7 +25,8 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recoil": "^0.7.7",
-    "tailwindcss": "^4.3.1"
+    "tailwindcss": "^4.3.1",
+    "kafkajs": "^2.2.4"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
