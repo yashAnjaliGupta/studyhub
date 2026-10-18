@@ -5,7 +5,6 @@ import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcrypt";
 const client = new PrismaClient() as any;
 
-
 export const authOptions: NextAuthOptions = {
     providers: [
         CredentialsProvider({
