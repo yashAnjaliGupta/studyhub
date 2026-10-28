@@ -1,7 +1,10 @@
 import os
 import io
 import re
-import pymupdf
+try:
+    import pymupdf
+except ImportError:
+    import fitz as pymupdf
 from PIL import Image
 from typing import List, Dict, Any, Optional, Tuple, Union
 from ..schemas import Asset, AssetRef

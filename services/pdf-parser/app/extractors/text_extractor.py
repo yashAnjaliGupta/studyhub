@@ -1,5 +1,8 @@
 import re
-import pymupdf
+try:
+    import pymupdf
+except ImportError:
+    import fitz as pymupdf
 from typing import List, Dict, Any, Optional
 from .layout_detector import LayoutDetector
 

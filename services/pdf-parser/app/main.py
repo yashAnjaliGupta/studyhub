@@ -8,7 +8,10 @@ import logging
 import tempfile
 from pathlib import Path
 from typing import Optional
-import pymupdf
+try:
+    import pymupdf
+except ImportError:
+    import fitz as pymupdf
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv

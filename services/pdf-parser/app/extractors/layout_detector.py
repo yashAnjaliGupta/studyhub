@@ -1,5 +1,8 @@
 import re
-import pymupdf
+try:
+    import pymupdf
+except ImportError:
+    import fitz as pymupdf
 from typing import Dict, List, Any, Set, Tuple
 from collections import Counter
 
