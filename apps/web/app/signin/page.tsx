@@ -1,8 +1,16 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@repo/auth";
+import { redirect } from "next/navigation";
 import BackgroundDecoration from "../../components/signin/BackgroundDecoration";
 import BrandSection from "../../components/signin/BrandSection";
 import LoginCard from "../../components/signin/LoginCard";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+    const session = await getServerSession(authOptions);
+    if (session?.user) {
+        redirect("/");
+    }
+
     return (
         <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-white to-blue-50">
             <BackgroundDecoration />

@@ -1,228 +1,238 @@
-# 🎓 StudyHub — AI-Powered Educational & Learning Platform
+# 🎓 StudyHub — AI-Powered Learning & Examination Ecosystem
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.2.0-black?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2.0-blue?logo=react)](https://react.dev/)
 [![Turborepo](https://img.shields.io/badge/Turborepo-2.9.18-ef4444?logo=turborepo)](https://turbo.build/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.2-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Prisma](https://img.shields.io/badge/Prisma-PostgreSQL-2D3748?logo=prisma)](https://www.prisma.io/)
+[![Prisma](https://img.shields.io/badge/Prisma-PostgreSQL%20%26%20pgvector-2D3748?logo=prisma)](https://www.prisma.io/)
 [![AWS Bedrock](https://img.shields.io/badge/AWS-Bedrock%20%26%20S3-FF9900?logo=amazon-aws)](https://aws.amazon.com/bedrock/)
+[![Apache Kafka](https://img.shields.io/badge/Apache-Kafka-231F20?logo=apache-kafka)](https://kafka.apache.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-PDF%20Parser-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://www.docker.com/)
 
-**StudyHub** is a state-of-the-art, AI-powered educational platform designed to streamline learning, textbook reading, and exam preparation. Built as a high-performance **Turborepo monorepo**, StudyHub integrates NCERT and State Board textbooks, Previous Year Question Papers (PYQPs), an interactive PDF reader, and a intelligent AI Study Assistant powered by **AWS Bedrock** and vector search (**pgvector**).
+**StudyHub** is an all-in-one educational and computer-based testing (CBT) platform designed for students preparing for school board examinations and competitive entrance exams (**JEE Main**, **JEE Advanced**, **NEET**, **CBSE**). Built as a high-performance **Turborepo monorepo**, StudyHub integrates digital textbook reading, an AI study assistant powered by **AWS Bedrock** and **pgvector**, past year question paper (PYQ) processing, a full CBT test simulator (**TestHub**), a dedicated Python **FastAPI PDF parsing microservice**, and an **Apache Kafka telemetry pipeline**.
 
 ---
 
-## ✨ Features
-
-### 🧠 1. AI-Powered Study Assistant (RAG Chatbot)
-- **Contextual Retrieval-Augmented Generation (RAG)**: Ask questions directly about any textbook chapter, study material, or uploaded PDF.
-- **AWS Bedrock & Titan Embeddings**: Utilizes Amazon Titan Text Embeddings V2 (`vector(1024)`) and Claude models via AWS Bedrock Runtime for accurate, domain-agnostic response synthesis.
-- **Vector Search Engine**: High-speed semantic search over page chunks stored in PostgreSQL with `pgvector`.
-- **Page-Level Citations**: Provides exact page numbers and inline references so students can verify AI-generated answers against original text.
-- **Floating Interactive Assistant**: Modern glassmorphic chat widget (`framer-motion`) embedded on all textbook pages.
-
-### 📚 2. Textbooks & Chapter Hub
-- **Hierarchical Categorization**: Browse educational content dynamically by **Board** (e.g., NCERT, State Boards), **Class**, **Subject**, **Book**, and **Chapter**.
-- **CDN Accelerated**: High-speed document streaming backed by AWS S3 and AWS CloudFront CDN.
-- **Book Cover & Metadata Library**: Structured metadata indexing for textbook discovery.
-
-### 📄 3. Interactive PDF Reader
-- **In-Browser Document Viewer**: Built with `react-pdf` and `pdfjs-dist` for smooth rendering without third-party plugins.
-- **Custom Page Navigation**: Jump to specific pages, zoom, toggle view modes, and download original files directly.
-
-### 📝 4. Previous Year Question Papers (PYQPs)
-- **Exam & Year Indexing**: Filter and search through past examination papers by Exam type, Class, Subject, and Year.
-- **One-Click Preview & Download**: Instant document streaming and high-speed CDN downloads.
-
-### 📤 5. Custom Document Upload & Indexing
-- **Personalized Notes**: Upload custom PDF study materials directly to AWS S3.
-- **Automated Text Extraction & Chunking**: Index personal notes for instant querying with the AI Study Assistant.
-
-### 🔐 6. Authentication & User Management
-- **NextAuth.js Integration**: Secure authentication supporting multiple identity providers.
-- **OAuth 2.0 & Credentials**: Google Sign-In support and Email/Password credentials with salted `bcrypt` password hashing.
-
-### ⚡ 7. Monorepo Architecture & DevOps
-- **Turborepo**: Optimized caching and parallel build pipeline across workspace apps and packages.
-- **Dockerized**: Containerized deployment setup ([Dockerfile](file:///e:/Co-hort/StudyHub/Dockerfile)) ready for cloud deployment.
-- **GitHub Actions CI/CD**: Automated pipeline ([deploy.yml](file:///e:/Co-hort/StudyHub/.github/workflows/deploy.yml)) to build and push containers to **AWS ECR** and trigger **AWS ECS** zero-downtime deployments.
-
----
-
-## 🏗️ Architecture & Tech Stack
+## 🏗️ Monorepo Architecture
 
 ```
 StudyHub Monorepo
 ├── apps/
-│   └── web/                # Next.js 16 (App Router), React 19, TailwindCSS, NextAuth
-└── packages/
-    ├── db/                 # Prisma ORM, PostgreSQL schema with pgvector
-    ├── ui/                 # Shared UI React component library
-    ├── eslint-config/      # Shared ESLint configuration
-    └── typescript-config/  # Shared TypeScript configurations
+│   ├── web/                    # Digital textbook reader, PYQ browser, S3 uploads & RAG chatbot (:3000)
+│   └── testhub/                # CBT examination engine, JEE past paper tests & AI analytics (:3001)
+├── packages/
+│   ├── ai/                     # AWS Bedrock runtime (Titan Embeddings V2 1024-dim, Claude 3 Sonnet)
+│   ├── auth/                   # Shared NextAuth.js, cross-app SSO cookies, bcrypt & role security
+│   ├── db/                     # Prisma ORM schema (PostgreSQL + pgvector) & dual-db sync
+│   ├── exam-core/              # Canonical CBT exam schemas, topic taxonomy & scoring logic
+│   ├── telemetry/              # Apache Kafka telemetry producer & React tracking hooks
+│   ├── ui/                     # Shared React 19 UI component library, KaTeX math & Tailwind v4
+│   ├── eslint-config/          # Shared ESLint 9 Flat Config presets
+│   └── typescript-config/      # Shared TypeScript base presets
+├── services/
+│   └── pdf-parser/             # FastAPI STEM document layout, watermark & diagram parsing service (:8001)
+├── scripts/
+│   ├── pyq-pipeline/           # Automated JEE PYQ crawler, downloader, extractor & S3 dual-sync
+│   ├── init-vector.ts          # Script to enable pgvector extension on PostgreSQL
+│   └── sync-s3.ts              # Script to synchronize S3 bucket documents with the database
+└── docker-compose.yml          # Local development stack (PostgreSQL + pgvector, Kafka, ZooKeeper)
 ```
 
-| Layer | Technology |
+---
+
+## ✨ Applications & Services Overview
+
+### 1. 🌐 StudyHub Web (`apps/web` — Port 3000)
+- **Digital Textbooks**: Browse NCERT and State Board textbooks by Board, Class, Subject, Book, and Chapter.
+- **In-Browser PDF Reader**: Smooth page navigation, zooming, and downloading via `react-pdf`.
+- **RAG AI Chatbot**: Embedded assistant with inline citations and one-click page navigation to original textbook pages.
+- **Admin Document Upload**: Presigned Amazon S3 document uploads secured by NextAuth.
+- Read more in [apps/web/README.md](apps/web/README.md).
+
+### 2. 🎯 TestHub CBT Platform (`apps/testhub` — Port 3001)
+- **National Exam Simulation**: Authentic CBT test interface matching NTA / official exam environments.
+- **Question Types**: Single-choice MCQ, multiple-choice MCQ, and numerical value inputs with error margins.
+- **Diagram Canvas**: In-browser drawing pad to sketch circuit diagrams, free-body diagrams, and scratch work.
+- **AI Solution Explanations**: Post-exam analysis chatbot breaking down solutions step-by-step.
+- **Performance Analytics**: Real-time topic accuracy metrics and scoring calculation (+4 / -1 / 0).
+- Read more in [apps/testhub/README.md](apps/testhub/README.md).
+
+### 3. 🔬 PDF Parser Microservice (`services/pdf-parser` — Port 8001)
+- **STEM Layout Detection**: Detects single vs. multi-column layouts and orders blocks correctly.
+- **Watermark & Ad Stripping**: Automatically removes coach-institute watermarks, promo headers, and footers.
+- **Diagram Extraction**: Isolates vector schematics and raster images, converting them into compressed `.webp` assets.
+- **Formula Protection**: Preserves LaTeX mathematical symbols for KaTeX rendering.
+- Read more in [services/pdf-parser/README.md](services/pdf-parser/README.md).
+
+### 4. 🤖 PYQ Ingestion Pipeline (`scripts/pyq-pipeline`)
+- Crawls past examination papers spanning 2002 to 2025.
+- Downloads raw PDFs, extracts questions and answer keys, builds clean branded PDFs, uploads to S3, and synchronizes with PostgreSQL.
+- Read more in [scripts/pyq-pipeline/README.md](scripts/pyq-pipeline/README.md).
+
+---
+
+## 🛠️ Tech Stack & Tooling
+
+| Domain | Technologies |
 | :--- | :--- |
-| **Framework** | Next.js 16 (App Router), React 19 |
-| **Monorepo Tooling** | Turborepo |
-| **Styling** | TailwindCSS, Lucide React, Framer Motion |
-| **Database** | PostgreSQL (Neon) + `pgvector` extension |
-| **ORM** | Prisma ORM (`@repo/db`) |
-| **AI / LLM Infrastructure** | AWS Bedrock (Titan Embeddings V2 & Claude) |
-| **File Storage & CDN** | AWS S3 + AWS CloudFront |
-| **Authentication** | NextAuth.js (Google OAuth, Email/Password Credentials) |
-| **Containers & CI/CD** | Docker, GitHub Actions, AWS ECR, AWS ECS |
+| **Frameworks** | Next.js 16.2.0 (App Router), React 19.2.0, FastAPI (Python 3.11+) |
+| **Monorepo Tooling** | Turborepo 2.9, npm Workspaces |
+| **Styling & UI** | Tailwind CSS v4, Lucide React, Framer Motion, KaTeX |
+| **Database & Vector Search** | PostgreSQL 16+ (Neon & Docker), Prisma ORM, `pgvector` (`vector(1024)`) |
+| **AI / LLM Infrastructure** | AWS Bedrock (Amazon Titan Embeddings V2, Claude 3 Sonnet), Google Gemini Vision |
+| **Storage & Delivery** | Amazon S3, Amazon CloudFront CDN |
+| **Authentication** | NextAuth.js v4 (Cross-Port SSO, Google OAuth, Salted bcrypt) |
+| **Telemetry & Streaming** | Apache Kafka, ZooKeeper, KafkaJS |
+| **Containers & CI** | Docker, Docker Compose, GitHub Actions (`build.yml`) |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **Node.js**: `v20.x` or higher
-- **Package Manager**: `npm` (`>=10.x`)
-- **Database**: PostgreSQL instance with the `vector` (`pgvector`) extension enabled (e.g., [Neon](https://neon.tech/)).
-- **AWS Account**: AWS IAM Credentials with access to AWS Bedrock Runtime and S3.
+- **Node.js**: `v20.x` or higher (`v24.x` recommended)
+- **npm**: `>=10.x`
+- **Python**: `3.11+` (for `services/pdf-parser`)
+- **Docker**: For running PostgreSQL + pgvector and Kafka locally
+- **AWS Credentials**: With access to Amazon S3 and AWS Bedrock Runtime
+
+---
 
 ### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/your-username/StudyHub.git
 cd StudyHub
 ```
 
 ### 2. Install Dependencies
+
 ```bash
 npm install
 ```
 
-### 3. Configure Environment Variables
+### 3. Start Local Infrastructure (Docker)
 
-Create `.env` files for the web application and database package.
-
-#### `apps/web/.env`
-```env
-# AWS Configuration
-AWS_REGION=us-east-1
-AWS_BUCKET_NAME=your-s3-bucket-name
-AWS_ACCESS_KEY_ID=your-aws-access-key-id
-AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
-NEXT_PUBLIC_CDN_URL=https://your-cdn-domain.com/
-
-# NextAuth Configuration
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-nextauth-secret-key
-
-# OAuth Providers
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# Email Service
-RESEND_API_KEY=re_your_resend_api_key
-```
-
-#### `packages/db/.env`
-```env
-DATABASE_URL=""
-```
-
-### 4. Database Setup & Prisma Generation
 ```bash
+docker compose up -d
+```
+This spins up:
+- **PostgreSQL with pgvector** on `localhost:5432` (`studyhub_postgres`)
+- **ZooKeeper** on `localhost:2181`
+- **Apache Kafka** on `localhost:9092`
+
+### 4. Configure Environment Variables
+
+Copy `.env.example` to `.env` or set up app-specific files:
+
+```bash
+cp .env.example .env
+cp apps/web/.env.example apps/web/.env
+cp apps/testhub/.env.example apps/testhub/.env
+cp packages/db/.env.example packages/db/.env
+cp services/pdf-parser/.env.example services/pdf-parser/.env
+```
+
+Ensure your `.env` contains:
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/studybyd?schema=public"
+AWS_REGION="us-east-1"
+AWS_BUCKET_NAME="your-s3-bucket-name"
+AWS_ACCESS_KEY_ID="your-aws-access-key-id"
+AWS_SECRET_ACCESS_KEY="your-aws-secret-access-key"
+NEXTAUTH_SECRET="your-nextauth-secret-key"
+```
+
+### 5. Setup Database & Prisma
+
+```bash
+# Generate Prisma Client
 npm run db:generate
+
+# Enable pgvector extension
+npm run init:vector
+
+# (Optional) Apply migrations
+cd packages/db && npx prisma migrate deploy && cd ../..
 ```
 
-### 5. Run Development Server
+### 6. Run the Applications
+
 ```bash
+# Run all monorepo apps simultaneously:
 npm run dev
+
+# Or run specific applications:
+npm run dev:web       # StudyHub Web on http://localhost:3000
+npm run dev:testhub   # TestHub CBT on http://localhost:3001
+npm run parser:dev    # PDF Parser on http://localhost:8001
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser to explore StudyHub!
 
 ---
 
-## 🛠️ Available Scripts
+## 🛠️ Monorepo Scripts Reference
 
-Run these scripts from the workspace root:
+Run these scripts from the repository root:
 
 | Command | Action |
 | :--- | :--- |
-| `npm run dev` | Starts all workspace applications in development mode |
-| `npm run build` | Builds all applications & packages via Turborepo |
+| `npm run dev` | Starts all apps in development mode via Turborepo |
+| `npm run dev:web` | Starts only StudyHub Web (`apps/web` on port 3000) |
+| `npm run dev:testhub` | Starts only TestHub CBT (`apps/testhub` on port 3001) |
+| `npm run build` | Builds all applications & packages across the monorepo |
+| `npm run start:web` | Starts the production server for StudyHub Web |
+| `npm run start:testhub` | Starts the production server for TestHub CBT |
+| `npm run check-types` | Validates TypeScript across all monorepo workspaces |
+| `npm run lint` | Runs ESLint across all monorepo workspaces |
+| `npm run format` | Formats all code using Prettier |
 | `npm run db:generate` | Generates the Prisma client inside `packages/db` |
-| `npm run check-types` | Runs type-checking across all monorepo packages |
-| `npm run lint` | Lints all projects using ESLint |
-| `npm run sync-s3` | Runs the custom S3 sync script (`scripts/sync-s3.ts`) |
-| `npm run start-app` | Launches production Next.js server (`apps/web`) |
+| `npm run init:vector` | Executes raw SQL to activate the PostgreSQL `pgvector` extension |
+| `npm run sync-s3` | Synchronizes S3 bucket documents with the `File` database table |
+| `npm run ingest:pyq` | Runs the automated JEE past-paper ingestion pipeline |
+| `npm run parser:dev` | Launches the Python FastAPI PDF parsing microservice |
 
 ---
 
-## 📡 Kafka Telemetry Setup
+## 📡 Apache Kafka Telemetry Setup
 
-To enable web telemetry production to Apache Kafka:
+StudyHub publishes user interaction telemetry (page views, exam events, answer selections) directly to Apache Kafka:
 
-1. **Start Kafka and Zookeeper (optional, for local development)**:
+1. **Start Kafka**:
    ```bash
-   docker-compose up -d
+   docker compose up -d zookeeper kafka
    ```
-   This will start ZooKeeper on port 2181 and Kafka on port 9092.
-
-2. **Configure environment variables**:
-   Add the following to your `.env.local` file (create one if it doesn't exist in the workspace root):
-   ```
-   KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-   # Optional: change the topic (defaults to web_telemetry)
-   KAFKA_TOPIC=web_telemetry
-
-   # Optional: Secure Kafka connection (SASL_SSL)
-   # KAFKA_SASL_MECHANISM=SCRAM-SHA-256
-   # KAFKA_SASL_USERNAME=your_username
-   # KAFKA_SASL_PASSWORD=your_password
-   # KAFKA_SSL_CA_LOCATION=path/to/ca.pem  # Relative to project root or absolute
-   ```
-   Ensure `DATABASE_URL` is already set for the database (as per the existing setup).
-
-3. **Run the application**:
+2. **Listen to telemetry events live**:
    ```bash
-   npm run dev
+   docker exec -it studyhub_kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic web_telemetry --from-beginning
    ```
-   The Next.js app will now collect telemetry events (page views, clicks) and send them to the Kafka topic via the `/api/telemetry` API route.
-
-4. **Verify telemetry is being produced**:
-   - Use the Kafka CLI to consume from the topic:
-     ```bash
-     docker exec -it <kafka-container> kafka-console-consumer --bootstrap-server localhost:9092 --topic web_telemetry --from-beginning
-     ```
-   - You should see JSON events printed as you interact with the app.
-
-5. **Your external Go consumer** can now read from the same topic `web_telemetry` to process the events.
+3. Read [packages/telemetry/README.md](packages/telemetry/README.md) for producer and consumer details.
 
 ---
 
-## 🚢 Deployment & CI/CD
+## 🚢 CI/CD & Testing
 
-StudyHub includes a fully automated GitHub Actions workflow [.github/workflows/deploy.yml](file:///e:/Co-hort/StudyHub/.github/workflows/deploy.yml).
-
-- **AWS ECR**: Builds the production Docker image and pushes tags `:latest` and `:${{ github.sha }}` to Amazon ECR.
-- **AWS ECS**: Forces a seamless zero-downtime deployment update on your ECS service.
-
-### GitHub Repository Secrets Needed:
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_REGION` *(Default: `us-east-1`)*
-- `ECR_REPOSITORY` *(Default: `studyhub`)*
-- `ECS_CLUSTER` & `ECS_SERVICE` *(Optional: triggers ECS deployment)*
+StudyHub uses GitHub Actions to ensure code quality on every Pull Request:
+- **Workflow**: [.github/workflows/build.yml](.github/workflows/build.yml)
+- **Validation**: Automatically runs `npm install`, `npm run db:generate`, and `npm run build` on PRs targeting `main`.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
-1. Fork the project.
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the branch (`git push origin feature/AmazingFeature`).
-5. Open a Pull Request.
+1. Fork the repository.
+2. Create your feature branch (`git checkout -b feature/amazing-feature`).
+3. Verify type-checking and linting pass:
+   ```bash
+   npm run check-types
+   npm run lint
+   ```
+4. Commit your changes (`git commit -m 'feat: Add amazing feature'`).
+5. Push to the branch (`git push origin feature/amazing-feature`).
+6. Open a Pull Request.
 
 ---
 
 ## 📄 License
 
-This project is released under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE).

@@ -16,11 +16,11 @@ export default function PrivacyPage() {
         {/* Navigation back */}
         <div className="mb-6">
           <Link
-            href="/signup"
+            href="/"
             className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back
+            Back to Home
           </Link>
         </div>
 

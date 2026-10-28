@@ -15,9 +15,13 @@ const PdfReaderLayout = dynamic(() => import("./PdfReaderLayout"), {
 export default function PdfReaderClientWrapper({
   Book,
   isLoggedIn,
+  paperId,
+  examName,
 }: {
   Book: BookItem[];
   isLoggedIn?: boolean;
+  paperId?: string | number | null;
+  examName?: string;
 }) {
-  return <PdfReaderLayout Book={Book} isLoggedIn={isLoggedIn} />;
+  return <PdfReaderLayout Book={Book} isLoggedIn={isLoggedIn} paperId={paperId} examName={examName} />;
 }

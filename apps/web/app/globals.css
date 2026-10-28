@@ -9,3 +9,8 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

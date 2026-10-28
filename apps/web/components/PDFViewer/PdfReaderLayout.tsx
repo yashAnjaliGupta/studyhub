@@ -19,6 +19,7 @@ import {
   BookOpenText,
   Maximize2,
   Minimize2,
+  PlayCircle,
 } from "lucide-react";
 import PdfViewer from "./PdfViewer";
 import { getReadingProgress, saveReadingProgress } from "../../lib/readingProgress";
@@ -33,7 +34,17 @@ export interface BookItem {
   status?: string;
 }
 
-export default function PdfReaderLayout({ Book, isLoggedIn }: { Book: BookItem[]; isLoggedIn?: boolean }) {
+export default function PdfReaderLayout({
+  Book,
+  isLoggedIn,
+  paperId,
+  examName,
+}: {
+  Book: BookItem[];
+  isLoggedIn?: boolean;
+  paperId?: string | number | null;
+  examName?: string;
+}) {
   const documentKey = Book[0]?.pdfUrl || Book[0]?.chapterName || "book_reader";
 
   const [activeChapter, setActiveChapter] = useState(() => {
@@ -357,6 +368,30 @@ export default function PdfReaderLayout({ Book, isLoggedIn }: { Book: BookItem[]
         </ToolbarButton>
 
         <Divider />
+
+        {isLoggedIn && paperId && !Book.some((b) => b.pdfUrl?.toUpperCase().includes("CBSE") || b.chapterName?.toUpperCase().includes("CBSE")) && (
+          <>
+            <div className="relative group">
+              <a
+                href={`${process.env.NEXT_PUBLIC_TESTHUB_URL || "http://localhost:3001"}/exam/${encodeURIComponent(String(paperId))}/configure?exam=${encodeURIComponent(examName || "JEE Main")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-sm transition hover:bg-amber-300 active:scale-95 cursor-pointer"
+                aria-label="Attempt with TestHub"
+              >
+                <PlayCircle size={15} />
+                <span>Attempt</span>
+              </a>
+              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
+                <span className="whitespace-nowrap rounded bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white shadow-xl ring-1 ring-white/10">
+                  Attempt with TestHub
+                </span>
+                <span className="border-4 border-transparent border-t-slate-900" />
+              </div>
+            </div>
+            <Divider />
+          </>
+        )}
 
         <div className="flex items-center gap-2.5 ml-auto">
           <div className="w-24 h-1.5 rounded-full bg-white bg-opacity-15 overflow-hidden">

@@ -1,5 +1,18 @@
-version: '3.8'
+﻿version: '3.8'
 services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: studyhub_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: studybyd
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     environment:
@@ -11,7 +24,7 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9093"
+      - 9092:9093
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -23,3 +36,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       # Other settings
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+volumes:
+  postgres_data:
+    driver: local

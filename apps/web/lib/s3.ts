@@ -1,8 +1,6 @@
 
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { PrismaClient } from "@repo/db/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@repo/db/client";
 
 export const s3 = new S3Client({
   region: process.env.AWS_REGION!,

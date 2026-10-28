@@ -1,45 +1,56 @@
-import { Resend } from "resend";
 import { NextResponse } from "next/server";
-import { otpStore } from "../../../../lib/otpStore";
-import { generateOtpEmailHtml } from "../../../../lib/emailTemplates";
+import { prisma } from "@repo/db/client";
+import { sendOtpEmail } from "@repo/auth/otp";
 
 export async function POST(request: Request) {
-    try {
-        const { email } = await request.json();
+  try {
+    const { email } = await request.json();
 
-        if (!email || typeof email !== "string") {
-            return NextResponse.json({ success: false, error: "Valid email is required" }, { status: 400 });
-        }
-
-        const normalizedEmail = email.trim().toLowerCase();
-
-        const apiKey = process.env.RESEND_API_KEY;
-        const resend = new Resend(apiKey || "re_dummy");
-
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-        // Store OTP in shared memory store
-        otpStore.set(normalizedEmail, otp);
-        console.log(`[OTP GENERATED] ${normalizedEmail} -> ${otp}`);
-
-        if (apiKey) {
-            await resend.emails.send({
-                from: "support@yashguptaiiit.in",
-                to: normalizedEmail,
-                subject: "Welcome to StudyHub - Verify Your Email",
-                html: generateOtpEmailHtml({ otp, email: normalizedEmail })
-            });
-        }
-
-        return NextResponse.json({
-            success: true,
-            message: "OTP sent successfully"
-        });
-    } catch (e: any) {
-        console.error("Error sending OTP:", e);
-        return NextResponse.json({
-            success: false,
-            error: e?.message || "Failed to send OTP email"
-        }, { status: 500 });
+    if (!email || typeof email !== "string") {
+      return NextResponse.json(
+        { success: false, error: "Valid email is required" },
+        { status: 400 }
+      );
     }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return NextResponse.json(
+        { success: false, error: "Please enter a valid email format" },
+        { status: 400 }
+      );
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findFirst({
+      where: { email: normalizedEmail },
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "An account with this email already exists. Please sign in.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const result = await sendOtpEmail({
+      email: normalizedEmail,
+      appName: "StudyHub",
+    });
+
+    return NextResponse.json(result);
+  } catch (e: any) {
+    console.error("[StudyHub OTP] Error sending verification email:", e);
+    return NextResponse.json(
+      {
+        success: false,
+        error: e?.message || "Failed to send OTP verification email. Please try again.",
+      },
+      { status: 500 }
+    );
+  }
 }

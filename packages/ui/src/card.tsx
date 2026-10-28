@@ -9,19 +9,8 @@ export function Card({
   className?: string;
   title: string;
   children: React.ReactNode;
-  href: string;
+  href?: string;
 }): JSX.Element {
-  return (
-    <a
-      className={className}
-      href={`${href}?utm_source=create-turbo&utm_medium=basic&utm_campaign=create-turbo"`}
-      rel="noopener noreferrer"
-      target="_blank"
-    >
-      <h2>
-        {title} <span>-&gt;</span>
-      </h2>
-      <p>{children}</p>
-    </a>
-  );
+  const content = <><h2 className="font-semibold">{title}</h2><div className="mt-3">{children}</div></>;
+  return href ? <a className={className} href={href}>{content}</a> : <section className={className}>{content}</section>;
 }

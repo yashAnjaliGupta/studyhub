@@ -34,6 +34,7 @@ const getInitials = (name?: string | null, email?: string | null) => {
 
 export const UserDropdown = ({ user }: UserDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -89,8 +90,14 @@ export const UserDropdown = ({ user }: UserDropdownProps) => {
         className="flex items-center gap-1.5 focus:outline-none group cursor-pointer"
       >
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-purple-600 via-indigo-500 to-pink-500 font-bold text-white shadow-md transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg ring-2 ring-white/30 group-hover:ring-white/80 overflow-hidden">
-          {user.image ? (
-            <img src={user.image} alt={user.name || 'User avatar'} className="h-full w-full object-cover" />
+          {user.image && !imgError ? (
+            <img
+              src={user.image}
+              alt={user.name || 'User avatar'}
+              referrerPolicy="no-referrer"
+              onError={() => setImgError(true)}
+              className="h-full w-full object-cover"
+            />
           ) : (
             <span>{initials}</span>
           )}

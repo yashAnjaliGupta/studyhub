@@ -1,17 +1,19 @@
 "use server";
-import { PrismaClient } from "@repo/db/client";
+import { client as dbClient } from "@repo/db/client";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../app/api/auth/[...nextauth]/route";
+import { authOptions } from "@repo/auth";
 
-const client = new PrismaClient() as any;
+const client = dbClient as any;
 
 export async function markUploadSuccessful(s3Key: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user?.email !== "yashgupta.yg318@gmail.com") {
+  const adminEmail = process.env.ADMIN_EMAIL || "yashgupta.yg318@gmail.com";
+  if (!session || session.user?.email !== adminEmail) {
     throw new Error("Unauthorized");
   }
-  const file = await client.update({
-    where:{ s3Key },
-    data:{ status: "COMPLETED" }
-  })
+  const file = await client.file.update({
+    where: { s3Key },
+    data: { status: "COMPLETED" },
+  });
+  return file;
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileText, Eye, Download, ChevronRight, Calendar, BookOpen, Layers } from "lucide-react";
+import { FileText, Eye, Download, ChevronRight, Calendar, BookOpen, Layers, PlayCircle } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
 interface Paper {
+    id?: number | string;
     title: string;
     subject: string;
     year: number | null;
@@ -14,12 +15,14 @@ interface Paper {
 
 interface PreviousYearPapersProps {
     papers: Paper[];
+    isLoggedIn?: boolean;
 }
 
-export default function PreviousYearPapers({ papers }: PreviousYearPapersProps) {
+export default function PreviousYearPapers({ papers, isLoggedIn }: PreviousYearPapersProps) {
     const params = useParams();
     const Exam = (params?.Exam as string) || "";
     const Class = (params?.Class as string) || "";
+    const testhubUrl = process.env.NEXT_PUBLIC_TESTHUB_URL || "http://localhost:3001";
 
     const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
     const [expandedYears, setExpandedYears] = useState<Record<string, boolean>>({});
@@ -286,9 +289,8 @@ export default function PreviousYearPapers({ papers }: PreviousYearPapersProps) 
                                                                 </p>
                                                             </div>
                                                         </div>
-
                                                         {/* Actions */}
-                                                        <div className="flex gap-2 flex-shrink-0">
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
                                                             <Link
                                                                 href={`/${encodeURIComponent(decodeURIComponent(Exam))}/${encodeURIComponent(decodeURIComponent(Class))}/${encodeURIComponent(paper.subject)}/${encodeURIComponent(paper.title)}`}
                                                                 className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 active:scale-95 cursor-pointer"
@@ -306,6 +308,36 @@ export default function PreviousYearPapers({ papers }: PreviousYearPapersProps) 
                                                                 <Download className="h-3.5 w-3.5" />
                                                                 <span>Download</span>
                                                             </button>
+
+                                                            {/* Attempt with TestHub - only shown when signed in and not CBSE */}
+                                                            {isLoggedIn && !(
+                                                                (Exam && decodeURIComponent(Exam).toUpperCase().includes("CBSE")) ||
+                                                                (paper.key && paper.key.toUpperCase().includes("CBSE")) ||
+                                                                (typeof paper.title === "string" && paper.title.toUpperCase().includes("CBSE"))
+                                                            ) && (() => {
+                                                                const rawExam = Exam ? decodeURIComponent(Exam) : "";
+                                                                const examName = rawExam.toUpperCase() === "JEE" ? "JEE Main" : (rawExam || "JEE Main");
+                                                                return (
+                                                                <div className="relative group">
+                                                                    <a
+                                                                        href={`${testhubUrl}/exam/${encodeURIComponent(paper.id ? String(paper.id) : paper.title)}/configure?exam=${encodeURIComponent(examName)}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 hover:border-amber-400 active:scale-95 cursor-pointer shadow-sm"
+                                                                        aria-label="Attempt with TestHub"
+                                                                    >
+                                                                        <PlayCircle className="h-3.5 w-3.5 text-amber-600" />
+                                                                        <span>Attempt</span>
+                                                                    </a>
+                                                                    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-30">
+                                                                        <span className="whitespace-nowrap rounded bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-md">
+                                                                            Attempt with TestHub
+                                                                        </span>
+                                                                        <span className="border-4 border-transparent border-t-slate-900" />
+                                                                    </div>
+                                                                </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     </div>
                                                 ))}

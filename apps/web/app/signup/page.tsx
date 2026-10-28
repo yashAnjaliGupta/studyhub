@@ -1,7 +1,15 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@repo/auth";
+import { redirect } from "next/navigation";
 import LeftPanel from "../../components/signup/LeftPanel";
 import SignupCard from "../../components/signup/SignupCard";
 
-export default function SignupPage() {
+export default async function SignupPage() {
+    const session = await getServerSession(authOptions);
+    if (session?.user) {
+        redirect("/");
+    }
+
     return (
         <main className="relative min-h-screen overflow-hidden bg-slate-50">
             {/* Background Decoration */}
@@ -32,7 +40,7 @@ export default function SignupPage() {
                 className="
           mx-auto
           grid
-          min-h-screen
+          min-h-[calc(100vh-4rem)]
           max-w-7xl
           lg:grid-cols-2
         "
@@ -48,10 +56,11 @@ export default function SignupPage() {
             flex
             items-center
             justify-center
-            px-6
-            py-10
-            md:px-10
-            lg:px-16
+            px-4
+            py-12
+            sm:px-8
+            md:px-12
+            lg:px-14
           "
                 >
                     <SignupCard />

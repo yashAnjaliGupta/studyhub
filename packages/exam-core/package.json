@@ -1,0 +1,17 @@
+{
+  "name": "@repo/exam-core",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./index.ts",
+    "./hooks": "./hooks.ts"
+  },
+  "dependencies": {
+    "@repo/db": "*"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "@repo/eslint-config": "*",
+    "typescript": "^5.9.2"
+  }
+}

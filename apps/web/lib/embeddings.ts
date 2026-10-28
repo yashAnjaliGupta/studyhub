@@ -1,148 +1,23 @@
-import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
-import { PrismaClient } from "@repo/db/client";
+import { prisma, type PrismaClient } from "@repo/db/client";
+import {
+  sanitizeText,
+  chunkText,
+  TitanV2EmbeddingProvider,
+  getBedrockClient,
+  type EmbeddingProvider,
+  type PageChunk,
+  type PageText,
+} from "@repo/ai";
+import { ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 
-
-export function sanitizeText(text: string): string {
-  if (!text) return "";
-  const wellFormed =
-    typeof (text as any).toWellFormed === "function"
-      ? (text as any).toWellFormed()
-      : text.replace(
-          /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
-          "\uFFFD"
-        );
-  return wellFormed.replace(/\0/g, "");
-}
-
-// Pluggable Embedding Provider Interface for Future-Proofing
-export interface EmbeddingProvider {
-  name: string;
-  dimension: number;
-  generateEmbedding(text: string): Promise<number[]>;
-  generateBatchEmbeddings(texts: string[], batchSize?: number): Promise<number[][]>;
-}
-
-// Amazon Titan Text Embeddings V2 Implementation (1024 Dimensions)
-export class TitanV2EmbeddingProvider implements EmbeddingProvider {
-  name = "Amazon Titan Text Embeddings V2";
-  dimension = 1024;
-  private client: BedrockRuntimeClient;
-
-  constructor() {
-    const accessKeyId = process.env.AWS_BEDROCK_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.AWS_BEDROCK_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
-    const region = process.env.AWS_BEDROCK_REGION || process.env.AWS_REGION || "us-east-1";
-
-    this.client = new BedrockRuntimeClient({
-      region,
-      ...(accessKeyId && secretAccessKey
-        ? {
-          credentials: {
-            accessKeyId,
-            secretAccessKey,
-          },
-        }
-        : {}),
-    });
-  }
-
-  async generateEmbedding(text: string): Promise<number[]> {
-    const cleanInput = sanitizeText(text);
-    const payload = {
-      inputText: cleanInput,
-      dimensions: this.dimension,
-      normalize: true,
-    };
-
-    const command = new InvokeModelCommand({
-      modelId: "amazon.titan-embed-text-v2:0",
-      contentType: "application/json",
-      accept: "application/json",
-      body: JSON.stringify(payload),
-    });
-
-    const response = await this.client.send(command);
-    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-    return responseBody.embedding;
-  }
-
-  async generateBatchEmbeddings(texts: string[], batchSize = 5): Promise<number[][]> {
-    const results: number[][] = new Array(texts.length);
-
-    for (let i = 0; i < texts.length; i += batchSize) {
-      const batchTexts = texts.slice(i, i + batchSize);
-      const batchIndices = batchTexts.map((_, idx) => i + idx);
-
-      const promises = batchTexts.map((text) => this.generateEmbedding(text));
-      const settled = await Promise.allSettled(promises);
-
-      settled.forEach((res, idx) => {
-        const targetIndex = batchIndices[idx]!;
-        if (res.status === "fulfilled") {
-          results[targetIndex] = res.value;
-        } else {
-          console.error(`[EmbeddingError] Failed chunk embedding index ${targetIndex}:`, res.reason);
-          throw res.reason;
-        }
-      });
-    }
-
-    return results;
-  }
-}
-
-export type PageChunk = {
-  index: number;
-  text: string;
+export {
+  sanitizeText,
+  chunkText,
+  TitanV2EmbeddingProvider,
+  type EmbeddingProvider,
+  type PageChunk,
+  type PageText,
 };
-
-export type PageText = {
-  pageNumber: number;
-  text: string;
-  chunks: PageChunk[];
-};
-
-export function chunkText(pageText: string, maxChunkSize = 800, overlap = 100): PageChunk[] {
-  const sanitized = sanitizeText(pageText);
-  const trimmed = sanitized.trim();
-  if (!trimmed) return [];
-  if (trimmed.length <= maxChunkSize) {
-    return [{ index: 0, text: trimmed }];
-  }
-
-  const chunks: PageChunk[] = [];
-  let start = 0;
-  let chunkIndex = 0;
-
-  while (start < trimmed.length) {
-    let end = Math.min(start + maxChunkSize, trimmed.length);
-
-    if (end < trimmed.length) {
-      const lastParagraph = trimmed.lastIndexOf("\n\n", end);
-      if (lastParagraph > start + maxChunkSize * 0.5) {
-        end = lastParagraph + 2;
-      } else {
-        const lastPeriod = trimmed.lastIndexOf(". ", end);
-        if (lastPeriod > start + maxChunkSize * 0.5) {
-          end = lastPeriod + 2;
-        }
-      }
-    }
-
-    const chunkContent = sanitizeText(trimmed.substring(start, end).trim());
-    if (chunkContent.length > 0) {
-      chunks.push({
-        index: chunkIndex++,
-        text: chunkContent,
-      });
-    }
-
-    if (end >= trimmed.length) break;
-    start = end - overlap;
-  }
-
-  return chunks;
-}
 
 export async function extractPdfPagesText(pdfBuffer: Buffer): Promise<PageText[]> {
   if (typeof globalThis.DOMMatrix === "undefined") {
@@ -190,7 +65,6 @@ export async function processDocumentEmbeddings({
   pdfUrl: string;
   provider?: EmbeddingProvider;
 }): Promise<void> {
-  const prisma = new PrismaClient();
   try {
     console.log(`[Embeddings] Starting extraction & vector generation for ${fileId ? `fileId: ${fileId}` : `chapterId: ${chapterId}`}`);
 
@@ -253,24 +127,40 @@ export async function processDocumentEmbeddings({
       const id = `emb_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 7)}`;
       const sanitizedChunkText = sanitizeText(chunk.text);
 
+      // Extract vector diagram SVGs if chunk contains visual / diagram indicators
+      const visuals = await extractVisualSvgForChunk(sanitizedChunkText);
+      const visualsJsonStr = visuals.visualsJson ? JSON.stringify(visuals.visualsJson) : null;
+
       if (fileId) {
         await prisma.$executeRawUnsafe(
-          `INSERT INTO "PageEmbedding" ("id", "fileId", "pageNumber", "chunkIndex", "text", "embedding", "createdAt") VALUES ($1, $2, $3, $4, $5, $6::vector, NOW())`,
+          `INSERT INTO "PageEmbedding" (
+            "id", "fileId", "pageNumber", "chunkIndex", "text", 
+            "diagramSvg", "visualsJson", "hasVisuals", "embedding", "createdAt"
+          ) VALUES ($1, $2, $3, $4, $5, $6, CAST($7 AS jsonb), $8, $9::vector, NOW())`,
           id,
           fileId,
           chunk.pageNumber,
           chunk.chunkIndex,
           sanitizedChunkText,
+          visuals.diagramSvg,
+          visualsJsonStr,
+          visuals.hasVisuals,
           vectorSqlStr
         );
       } else if (chapterId) {
         await prisma.$executeRawUnsafe(
-          `INSERT INTO "PageEmbedding" ("id", "chapterId", "pageNumber", "chunkIndex", "text", "embedding", "createdAt") VALUES ($1, $2, $3, $4, $5, $6::vector, NOW())`,
+          `INSERT INTO "PageEmbedding" (
+            "id", "chapterId", "pageNumber", "chunkIndex", "text", 
+            "diagramSvg", "visualsJson", "hasVisuals", "embedding", "createdAt"
+          ) VALUES ($1, $2, $3, $4, $5, $6, CAST($7 AS jsonb), $8, $9::vector, NOW())`,
           id,
           chapterId,
           chunk.pageNumber,
           chunk.chunkIndex,
           sanitizedChunkText,
+          visuals.diagramSvg,
+          visualsJsonStr,
+          visuals.hasVisuals,
           vectorSqlStr
         );
       }
@@ -304,4 +194,17 @@ export async function updateDocStatus(
       data: { status },
     });
   }
+}
+
+/**
+ * Detects if a text chunk describes a diagram, circuit, graph, or visual setup,
+ * and uses Bedrock Claude to generate the inline vector SVG representation.
+ */
+export async function extractVisualSvgForChunk(_chunkText: string): Promise<{
+  diagramSvg: string | null;
+  visualsJson: any | null;
+  hasVisuals: boolean;
+}> {
+  // SVG vector generation from PDF text has been deprecated in favor of authentic extracted raster images
+  return { diagramSvg: null, visualsJson: null, hasVisuals: false };
 }

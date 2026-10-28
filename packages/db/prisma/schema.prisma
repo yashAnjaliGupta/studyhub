@@ -21,6 +21,7 @@ model User {
   password String?
 }
 
+// Existing StudyHub models (keeping them as-is)
 enum FileStatus {
   PENDING
   PROCESSING
@@ -102,10 +103,168 @@ model PageEmbedding {
   chunkIndex Int
   text       String       @db.Text
 
+  diagramSvg  String?      @db.Text  // Inline vector SVG for diagrams/schematics
+  visualsJson Json?                  // Extracted option plots: [{ label: "A", svg: "<svg...>" }, ...]
+  hasVisuals  Boolean      @default(false)
+
   embedding  Unsupported("vector(1024)")
 
   createdAt  DateTime     @default(now())
 
   @@index([fileId])
   @@index([chapterId])
+  @@index([hasVisuals])
+}
+
+// === EXAM DOMAIN MODELS ===
+// Added for TestHub functionality
+
+enum ExamAttemptStatus {
+  CREATED
+  IN_PROGRESS
+  SUBMITTED
+  EVALUATED
+  INSIGHTS_AVAILABLE
+}
+
+model Paper {
+  id          String   @id @default(uuid())
+  title       String
+  subject     String   // e.g., "Physics", "Chemistry", "Mathematics", "Biology"
+  examType    String   // e.g., "JEE Main", "JEE Advanced", "NEET"
+  year        Int
+  totalMarks  Int
+  durationMin Int      // Duration in minutes
+  instructions String? @db.Text // AI synthesized exam instructions (bilingual JSON or formatted text)
+  documentJson Json?    // Full canonical ExamPaper JSON/BSON document
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  questions   Question[] @relation("PaperQuestions")
+  examAttempts ExamAttempt[] @relation("PaperAttempts")
+
+  @@index([subject, examType, year])
+}
+
+model Question {
+  id               String   @id @default(uuid())
+  paperId          String?
+  paper            Paper?   @relation("PaperQuestions", fields: [paperId], references: [id], onDelete: Cascade)
+  topicId          String?
+  topic            Topic?   @relation("QuestionTopics", fields: [topicId], references: [id], onDelete: SetNull)
+  sequenceNum      Int?     // Original sequence number in the paper (null for question bank)
+  text             String   @db.Text
+  type             String   @default("mcq_single") // mcq_single, mcq_multiple, numerical, text_subjective
+  subject          String?  // Academic subject: Physics, Chemistry, Mathematics, Biology
+  tags             String[] @default([])
+  imageUrl         String?  // S3 / CDN image URL or cropped image
+  diagramSvg       String?  @db.Text // Embedded SVG vector markup for circuits/diagrams
+  pageNumber       Int?     // Source page number in the original PDF
+  marks            Int      @default(4)
+  negativeMarks    Int?     @default(1)
+
+  // Embedded options as JSON array: [{ id: "opt_1", label: "A", text: "...", imageUrl: null }, ...]
+  options          Json?    @default("[]")
+
+  // Correct Answer(s)
+  correctOptionIds String[] @default([]) // Option IDs e.g. ["opt_1"] or ["opt_1", "opt_3"]
+  numericalAnswer  Json?                 // e.g. { "value": 42.5, "tolerance": 0.05, "range": [42.45, 42.55] }
+
+  // Solution & Explanation
+  solutionText     String?  @db.Text
+  solutionSvg      String?  @db.Text
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  attemptAnswers   ExamAttemptAnswer[] @relation("QuestionAttemptAnswers")
+
+  @@index([paperId, sequenceNum])
+  @@index([subject])
+  @@index([topicId])
+}
+
+model Topic {
+  id          String   @id @default(uuid())
+  name        String   // e.g., "Mechanics", "Electrostatics", "Organic Chemistry"
+  subject     String   // e.g., "Physics", "Chemistry", "Mathematics", "Biology"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  questions   Question[] @relation("QuestionTopics")
+  studentMetrics StudentTopicMetrics[] @relation("StudentTopicMetrics")
+
+  @@unique([subject, name])
+  @@index([subject, name])
+}
+
+model ExamAttempt {
+  id          String   @id @default(uuid())
+  studentId   String   // References User.id (assuming we extend User or have a separate student profile)
+  paperId     String
+  paper       Paper    @relation("PaperAttempts", fields: [paperId], references: [id])
+  status      ExamAttemptStatus @default(CREATED)
+  config      Json     // Exam configuration (shuffle options, timing, etc.)
+  startedAt   DateTime @default(now())
+  submittedAt DateTime?
+  evaluatedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  attemptAnswers ExamAttemptAnswer[] @relation("ExamAttemptAttemptAnswers")
+  guidanceReports AIGuidanceReport[] @relation("AttemptGuidance")
+
+  @@index([studentId, status])
+  @@index([paperId])
+  @@index([createdAt])
+}
+
+model ExamAttemptAnswer {
+  id          String   @id @default(uuid())
+  attemptId   String
+  attempt     ExamAttempt @relation("ExamAttemptAttemptAnswers", fields: [attemptId], references: [id])
+  questionId  String
+  question    Question @relation("QuestionAttemptAnswers", fields: [questionId], references: [id])
+  selectedOptionId String?  // For mcq_single
+  selectedOptionIds String[] @default([]) // For mcq_multiple
+  textAnswer  String?  // For numerical and text_subjective
+  markedForReview Boolean @default(false)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([attemptId, questionId])
+  @@index([questionId])
+}
+
+model StudentTopicMetrics {
+  id          String   @id @default(uuid())
+  studentId   String
+  topicId     String
+  topic       Topic    @relation("StudentTopicMetrics", fields: [topicId], references: [id])
+
+  attemptsCount Int @default(0)
+  correctCount  Int @default(0)
+  accuracy      Float   // Percentage - simplified from Decimal(5,2)
+  avgTimeSpent  Int   // Average time spent per question in seconds
+  lastAttempted DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, topicId])
+  @@index([studentId])
+}
+
+// AI Guidance tables
+model AIGuidanceReport {
+  id          String   @id @default(uuid())
+  attemptId   String
+  attempt     ExamAttempt @relation("AttemptGuidance", fields: [attemptId], references: [id])
+  reportVersion String  // Version of the guidance report
+  inputVersion  String  // Version of the input data used
+  status        String  // e.g., "generating", "completed", "failed"
+  reportJson    Json    // The actual guidance report
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([attemptId, reportVersion])
+  @@index([createdAt])
 }

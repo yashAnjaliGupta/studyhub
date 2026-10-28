@@ -1,8 +1,6 @@
 import { NextRequest } from "next/server";
-import { PrismaClient } from "@repo/db/client";
+import { prisma } from "@repo/db/client";
 import { PDFDocument } from "pdf-lib";
-
-const prisma = new PrismaClient();
 
 const getChapterNumber = (name: string): number => {
   const match = name.match(/\d+/);

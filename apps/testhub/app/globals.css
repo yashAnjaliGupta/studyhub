@@ -1,0 +1,79 @@
+@import "tailwindcss";
+@source "../../../packages/ui/src";
+
+@utility no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+.diagram-svg-container svg {
+  width: 100% !important;
+  max-width: 480px !important;
+  height: auto !important;
+  min-height: 200px !important;
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+.option-svg-container svg {
+  width: 100% !important;
+  max-width: 280px !important;
+  height: auto !important;
+  max-height: 140px !important;
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+/* =========================================================================
+   TESTHUB STAR PROGRESS LOADER
+   Prominent colors: TestHub Electric Blue (#0875f9) & CBT Amber Gold (#f59e0b)
+   ========================================================================= */
+.loader,
+.testhub-loader {
+  --s: 36px;
+  height: calc(var(--s) * 0.9);
+  width: calc(var(--s) * 5);
+  --v1: transparent, #000 0.5deg 108deg, #0000 109deg;
+  --v2: transparent, #000 0.5deg 36deg, #0000 37deg;
+  -webkit-mask:
+    conic-gradient(from 54deg at calc(var(--s) * 0.68) calc(var(--s) * 0.57), var(--v1)),
+    conic-gradient(from 90deg at calc(var(--s) * 0.02) calc(var(--s) * 0.35), var(--v2)),
+    conic-gradient(from 126deg at calc(var(--s) * 0.5) calc(var(--s) * 0.7), var(--v1)),
+    conic-gradient(from 162deg at calc(var(--s) * 0.5) 0, var(--v2));
+  mask:
+    conic-gradient(from 54deg at calc(var(--s) * 0.68) calc(var(--s) * 0.57), var(--v1)),
+    conic-gradient(from 90deg at calc(var(--s) * 0.02) calc(var(--s) * 0.35), var(--v2)),
+    conic-gradient(from 126deg at calc(var(--s) * 0.5) calc(var(--s) * 0.7), var(--v1)),
+    conic-gradient(from 162deg at calc(var(--s) * 0.5) 0, var(--v2));
+  -webkit-mask-size: var(--s) var(--s);
+  mask-size: var(--s) var(--s);
+  -webkit-mask-composite: xor, destination-over;
+  mask-composite: exclude, add;
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  background: linear-gradient(90deg, #0875f9 0%, #2563eb 50%, #f59e0b 100%) left / 0% 100% #e2e8f0 no-repeat;
+  animation: l20 2s infinite linear;
+}
+
+.loader-gold {
+  background: linear-gradient(#ffb940 0 0) left / 0% 100% #e2e8f0 no-repeat !important;
+}
+
+.loader-blue {
+  background: linear-gradient(#0875f9 0 0) left / 0% 100% #e2e8f0 no-repeat !important;
+}
+
+@keyframes l20 {
+  90%, 100% {
+    background-size: 100% 100%;
+  }
+}

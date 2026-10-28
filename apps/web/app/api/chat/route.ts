@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@repo/db/client";
+import { prisma } from "@repo/db/client";
 import { BedrockRuntimeClient, ConverseStreamCommand, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
-import { TitanV2EmbeddingProvider } from "../../../lib/embeddings";
+import { TitanV2EmbeddingProvider } from "@repo/ai";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../auth/[...nextauth]/route";
+import { authOptions } from "@repo/auth";
 
-const prisma = new PrismaClient();
 const embeddingProvider = new TitanV2EmbeddingProvider();
 
 function cleanPdfText(text: string): string {
@@ -359,21 +358,22 @@ AI Response:`;
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
-        let streamHandled = false;
+        try {
+          let streamHandled = false;
 
-        // A) AWS Bedrock
-        const accessKeyId = process.env.AWS_BEDROCK_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
-        const secretAccessKey = process.env.AWS_BEDROCK_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
-        const region = process.env.AWS_BEDROCK_REGION || process.env.AWS_REGION || "us-east-1";
+          // A) AWS Bedrock
+          const accessKeyId = process.env.AWS_BEDROCK_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+          const secretAccessKey = process.env.AWS_BEDROCK_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+          const region = process.env.AWS_BEDROCK_REGION || process.env.AWS_REGION || "us-east-1";
 
-        if (accessKeyId && secretAccessKey) {
-          try {
-            const bedrockClient = new BedrockRuntimeClient({
-              region,
-              credentials: { accessKeyId, secretAccessKey },
-            });
+          if (accessKeyId && secretAccessKey) {
+            try {
+              const bedrockClient = new BedrockRuntimeClient({
+                region,
+                credentials: { accessKeyId, secretAccessKey },
+              });
 
-            const systemInstruction = `You are an expert AI Study Assistant for Students.
+              const systemInstruction = `You are an expert AI Study Assistant for Students.
 You are given the COMPLETE context of an ENTIRE study chapter/question paper across all its pages.
 Answer the user's question thoroughly, intelligently, and accurately based on the WHOLE document context.
 
@@ -387,171 +387,182 @@ Universal Instructions:
 Complete Chapter Context:
 ${promptContext}`;
 
-            const bedrockModels = [
-              "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-              "amazon.nova-lite-v1:0"
-            ];
+              const bedrockModels = [
+                "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                "amazon.nova-lite-v1:0"
+              ];
 
-            for (const modelId of bedrockModels) {
-              try {
-                const command = new ConverseStreamCommand({
-                  modelId,
-                  system: [{ text: systemInstruction }],
-                  messages: [
-                    {
-                      role: "user",
-                      content: [{ text: query }],
+              for (const modelId of bedrockModels) {
+                try {
+                  const command = new ConverseStreamCommand({
+                    modelId,
+                    system: [{ text: systemInstruction }],
+                    messages: [
+                      {
+                        role: "user",
+                        content: [{ text: query }],
+                      },
+                    ],
+                    inferenceConfig: {
+                      maxTokens: 2048,
+                      topP: 0.9,
                     },
-                  ],
-                  inferenceConfig: {
-                    maxTokens: 2048,
-                    topP: 0.9,
-                  },
-                });
+                  });
 
-                const bedrockRes = await bedrockClient.send(command);
+                  const bedrockRes = await bedrockClient.send(command);
 
-                if (bedrockRes.stream) {
-                  for await (const chunk of bedrockRes.stream) {
-                    if (chunk.contentBlockDelta?.delta?.text) {
-                      const textChunk = chunk.contentBlockDelta.delta.text;
-                      controller.enqueue(encoder.encode(textChunk));
-                      streamHandled = true;
+                  if (bedrockRes.stream) {
+                    for await (const chunk of bedrockRes.stream) {
+                      if (chunk.contentBlockDelta?.delta?.text) {
+                        const textChunk = chunk.contentBlockDelta.delta.text;
+                        controller.enqueue(encoder.encode(textChunk));
+                        streamHandled = true;
+                      }
                     }
                   }
+                  if (streamHandled) {
+                    console.log(`[Chat API] Streamed answer using Bedrock ConverseStream model: ${modelId}`);
+                    break;
+                  }
+                } catch (err: any) {
+                  console.warn(`[Chat API] Bedrock ${modelId} converse stream warning:`, err?.message || err);
                 }
-                console.log(modelId)
-                if (streamHandled) {
-                  console.log(`[Chat API] Streamed answer using Bedrock ConverseStream model: ${modelId}`);
-                  break;
-                }
-              } catch (err: any) {
-                console.warn(`[Chat API] Bedrock ${modelId} converse stream warning:`, err?.message || err);
               }
-            }
 
-            // Fallback for Titan via InvokeModelCommand if ConverseStream models failed
-            if (!streamHandled) {
-              try {
-                const command = new InvokeModelCommand({
-                  modelId: "amazon.titan-text-express-v1",
-                  contentType: "application/json",
-                  accept: "application/json",
-                  body: JSON.stringify({
-                    inputText: systemPrompt,
-                    textGenerationConfig: { maxTokenCount: 1024, temperature: 0.2, topP: 0.9 },
-                  }),
-                });
-                const bedrockRes = await bedrockClient.send(command);
-                const resBody = JSON.parse(new TextDecoder().decode(bedrockRes.body));
-                const parsed = resBody?.results?.[0]?.outputText?.trim();
-                if (parsed && parsed.length > 20) {
-                  controller.enqueue(encoder.encode(parsed));
-                  streamHandled = true;
-                  console.log("[Chat API] Answer generated using Bedrock amazon.titan-text-express-v1");
+              // Fallback for Titan via InvokeModelCommand if ConverseStream models failed
+              if (!streamHandled) {
+                try {
+                  const command = new InvokeModelCommand({
+                    modelId: "amazon.titan-text-express-v1",
+                    contentType: "application/json",
+                    accept: "application/json",
+                    body: JSON.stringify({
+                      inputText: systemPrompt,
+                      textGenerationConfig: { maxTokenCount: 1024, temperature: 0.2, topP: 0.9 },
+                    }),
+                  });
+                  const bedrockRes = await bedrockClient.send(command);
+                  const resBody = JSON.parse(new TextDecoder().decode(bedrockRes.body));
+                  const parsed = resBody?.results?.[0]?.outputText?.trim();
+                  if (parsed && parsed.length > 20) {
+                    controller.enqueue(encoder.encode(parsed));
+                    streamHandled = true;
+                    console.log("[Chat API] Answer generated using Bedrock amazon.titan-text-express-v1");
+                  }
+                } catch (titanErr: any) {
+                  console.warn("[Chat API] Bedrock Titan fallback warning:", titanErr?.message || titanErr);
                 }
-              } catch (titanErr: any) {
-                console.warn("[Chat API] Bedrock Titan fallback warning:", titanErr?.message || titanErr);
               }
+            } catch (bedrockErr) {
+              console.warn("[Chat API] Bedrock client error:", bedrockErr);
             }
-          } catch (bedrockErr) {
-            console.warn("[Chat API] Bedrock client error:", bedrockErr);
           }
-        }
 
-        let aiAnswer = "";
+          let aiAnswer = "";
 
-        // B) Google Gemini API Fallback
-        const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-        if (!streamHandled && !aiAnswer && geminiApiKey) {
-          try {
-            const geminiRes = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-              {
+          // B) Google Gemini API Fallback
+          const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+          if (!streamHandled && !aiAnswer && geminiApiKey) {
+            try {
+              const geminiRes = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    contents: [{ parts: [{ text: systemPrompt }] }],
+                  }),
+                }
+              );
+              if (geminiRes.ok) {
+                const gData = await geminiRes.json();
+                const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  aiAnswer = text.trim();
+                  console.log("[Chat API] Answer generated using Google Gemini API");
+                }
+              }
+            } catch (gErr) {
+              console.warn("[Chat API] Gemini API error:", gErr);
+            }
+          }
+
+          // C) OpenAI API Fallback
+          const openaiApiKey = process.env.OPENAI_API_KEY;
+          if (!streamHandled && !aiAnswer && openaiApiKey) {
+            try {
+              const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${openaiApiKey}`,
+                },
+                body: JSON.stringify({
+                  model: "gpt-4o-mini",
+                  messages: [{ role: "user", content: systemPrompt }],
+                  max_tokens: 1024,
+                }),
+              });
+              if (openAiRes.ok) {
+                const oData = await openAiRes.json();
+                const text = oData?.choices?.[0]?.message?.content;
+                if (text) {
+                  aiAnswer = text.trim();
+                  console.log("[Chat API] Answer generated using OpenAI API");
+                }
+              }
+            } catch (oErr) {
+              console.warn("[Chat API] OpenAI API error:", oErr);
+            }
+          }
+
+          // E) Local Ollama Fallback
+          if (!streamHandled && !aiAnswer) {
+            try {
+              const ollamaRes = await fetch("http://localhost:11434/api/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  contents: [{ parts: [{ text: systemPrompt }] }],
+                  model: "llama3",
+                  prompt: systemPrompt,
+                  stream: false,
                 }),
+              });
+              if (ollamaRes.ok) {
+                const oData = await ollamaRes.json();
+                if (oData?.response) {
+                  aiAnswer = oData.response.trim();
+                  console.log("[Chat API] Answer generated using Local Ollama");
+                }
               }
-            );
-            if (geminiRes.ok) {
-              const gData = await geminiRes.json();
-              const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (text) {
-                aiAnswer = text.trim();
-                console.log("[Chat API] Answer generated using Google Gemini API");
-              }
+            } catch (ollamaErr) {
+              // Ollama not running locally
             }
-          } catch (gErr) {
-            console.warn("[Chat API] Gemini API error:", gErr);
           }
-        }
 
-        // C) OpenAI API Fallback
-        const openaiApiKey = process.env.OPENAI_API_KEY;
-        if (!streamHandled && !aiAnswer && openaiApiKey) {
+          // 5. Universal Subject-Agnostic Dynamic RAG Synthesizer Fallback
+          if (!streamHandled && !aiAnswer) {
+            console.log("[Chat API] Using universal subject-agnostic synthesis engine...");
+            aiAnswer = generateWholeDocumentSynthesis(query, pageMap, vectorResults);
+          }
+
+          if (!streamHandled && aiAnswer) {
+            controller.enqueue(encoder.encode(aiAnswer));
+          }
+        } catch (streamError) {
+          console.error("[Chat API Stream Error]:", streamError);
+          controller.enqueue(
+            encoder.encode(
+              "\n\n*Our AI assistant encountered a temporary interruption while generating the response. Please try again.*"
+            )
+          );
+        } finally {
           try {
-            const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${openaiApiKey}`,
-              },
-              body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [{ role: "user", content: systemPrompt }],
-                max_tokens: 1024,
-              }),
-            });
-            if (openAiRes.ok) {
-              const oData = await openAiRes.json();
-              const text = oData?.choices?.[0]?.message?.content;
-              if (text) {
-                aiAnswer = text.trim();
-                console.log("[Chat API] Answer generated using OpenAI API");
-              }
-            }
-          } catch (oErr) {
-            console.warn("[Chat API] OpenAI API error:", oErr);
+            controller.close();
+          } catch {
+            // Controller might already be closed
           }
         }
-
-        // E) Local Ollama Fallback
-        if (!streamHandled && !aiAnswer) {
-          try {
-            const ollamaRes = await fetch("http://localhost:11434/api/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                model: "llama3",
-                prompt: systemPrompt,
-                stream: false,
-              }),
-            });
-            if (ollamaRes.ok) {
-              const oData = await ollamaRes.json();
-              if (oData?.response) {
-                aiAnswer = oData.response.trim();
-                console.log("[Chat API] Answer generated using Local Ollama");
-              }
-            }
-          } catch (ollamaErr) {
-            // Ollama not running locally
-          }
-        }
-
-        // 5. Universal Subject-Agnostic Dynamic RAG Synthesizer Fallback
-        if (!streamHandled && !aiAnswer) {
-          console.log("[Chat API] Using universal subject-agnostic synthesis engine...");
-          aiAnswer = generateWholeDocumentSynthesis(query, pageMap, vectorResults);
-        }
-
-        if (!streamHandled && aiAnswer) {
-          controller.enqueue(encoder.encode(aiAnswer));
-        }
-
-        controller.close();
       },
     });
 

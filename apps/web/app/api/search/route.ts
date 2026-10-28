@@ -1,7 +1,5 @@
-import { PrismaClient } from "@repo/db/client";
+import { prisma } from "@repo/db/client";
 import { NextRequest, NextResponse } from "next/server";
-
-const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
   try {
@@ -117,9 +115,14 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("Search API error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    // Return empty result payload rather than 500 so client search dropdown remains responsive
+    return NextResponse.json({
+      exams: [],
+      classes: [],
+      subjects: [],
+      books: [],
+      chapters: [],
+      error: "Search temporarily unavailable",
+    });
   }
 }

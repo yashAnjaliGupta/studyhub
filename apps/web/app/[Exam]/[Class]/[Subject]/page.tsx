@@ -11,14 +11,14 @@ import {
   Star,
 } from "lucide-react";
 
-import { PrismaClient } from "@repo/db/client";
+import { client } from "@repo/db/client";
 import Link from "next/link";
 import DownloadButton from "../../../../components/DownloadButton";
 import PreviousYearPapers from "../../../../components/PreviousYearQP";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@repo/auth";
 
 import type { Metadata } from "next";
-
-const client = new PrismaClient();
 type Props = {
   params: Promise<{
     Exam: string;
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = `${subject} Books, PYQs & Notes for ${Exam} ${className} | StudyHub`;
   const description = `Download free ${subject} books, previous year question paper PDFs, chapter notes, and learning resources for ${Exam} ${className} on StudyHub.`;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.yashguptaiiit.in";
   const canonicalUrl = `${siteUrl}/${rawExam}/${rawClass}/${rawSubject}`;
 
   return {
@@ -67,6 +67,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function Page({ params }: Props) {
+  const session = await getServerSession(authOptions);
+  const isLoggedIn = !!session?.user;
   const Exam = (await params).Exam
   const className = decodeURIComponent((await params).Class)
   const subject = decodeURIComponent((await params).Subject)
@@ -103,6 +105,7 @@ export default async function Page({ params }: Props) {
     `;
 
   const papersData: {
+    id: number;
     fileName: string;
     subject: string;
     year: number | null;
@@ -114,6 +117,7 @@ export default async function Page({ params }: Props) {
       subject: subject,
     },
     select: {
+      id: true,
       fileName: true,
       subject: true,
       year: true,
@@ -125,13 +129,14 @@ export default async function Page({ params }: Props) {
   });
   const papers = papersData.map((paper) => {
     return {
+      id: paper.id,
       title: paper.fileName,
       subject: paper.subject,
       year: paper.year,
       key: paper.s3Key,
     }
   })
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.yashguptaiiit.in";
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -208,26 +213,8 @@ export default async function Page({ params }: Props) {
         </div>
       </div>
 
-      {/* ================= HERO AD ================= */}
-
-      <section className="mx-auto mt-6 max-w-7xl px-4">
-        <div className="flex h-28 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-700 via-indigo-600 to-cyan-500 shadow-xl">
-          <div className="text-center text-white">
-            <p className="text-xs uppercase tracking-widest opacity-70">
-              Advertisement
-            </p>
-
-            <p className="text-xl font-semibold">
-              Leaderboard Banner (728 × 90)
-            </p>
-          </div>
-        </div>
-      </section>
-
-
       {/* Layout */}
-
-      <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_280px]">
+      <div className="mt-10">
         {/* Books */}
 
         <section>
@@ -266,49 +253,40 @@ export default async function Page({ params }: Props) {
 
                 <div className="space-y-3 p-4">
                   <div>
-                    <h3 className="line-clamp-2 font-semibold">
+                    <h3 className="line-clamp-2 font-semibold text-slate-800">
                       {book.bookName}
                     </h3>
                   </div>
 
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-700">
-                      PDF
+                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 font-medium text-blue-700">
+                      NCERT Textbook
                     </span>
-
-                    <span className="rounded-full bg-green-100 px-2 py-1 text-green-700">
-                      Notes
+                    <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 font-medium text-indigo-700">
+                      PDF
                     </span>
                   </div>
 
                   <div className="grid grid-cols-4 gap-2 pt-2">
-                    <Link href={`/${Exam}/${className}/${subject}/${book.bookName}`}>
-                      <button className="rounded-lg bg-blue-600 p-2 text-white hover:bg-blue-700">
+                    <Link href={`/${Exam}/${className}/${subject}/${book.bookName}`} className="col-span-1">
+                      <button className="w-full rounded-lg bg-blue-600 p-2 text-white hover:bg-blue-700 transition" title="Read Textbook">
                         <BookOpen className="mx-auto h-4 w-4" />
                       </button>
                     </Link>
-                    <DownloadButton
-                      className={className}
-                      subjectName={subject}
-                      bookName={book.bookName}
-                    />
+                    <div className="col-span-3">
+                      <DownloadButton
+                        className={className}
+                        subjectName={subject}
+                        bookName={book.bookName}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <PreviousYearPapers papers={papers} />
-
+          <PreviousYearPapers papers={papers} isLoggedIn={isLoggedIn} />
         </section>
-        {/* Sidebar */}
-
-        <aside className="space-y-6">
-
-
-          <div className="flex h-96 items-center justify-center rounded-2xl border bg-white">
-            Advertisement
-          </div>
-        </aside>
       </div>
     </main>
   );

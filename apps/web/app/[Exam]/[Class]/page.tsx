@@ -11,14 +11,14 @@ import {
   Sigma,
   Atom,
 } from "lucide-react";
-import { PrismaClient } from "@repo/db/client";
+import { client } from "@repo/db/client";
 import Link from "next/link";
 import { GetSubjectIcon } from "../../../lib/getSubjectIcons";
 import PreviousYearPapers from "../../../components/PreviousYearQP";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@repo/auth";
 
 import type { Metadata } from "next";
-
-const client = new PrismaClient();
 type Props = {
   params: Promise<{
     Exam: string;
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = `${Exam} ${className} Previous Year Question Papers & Study Material | StudyHub`;
   const description = `Access free books, chapter notes, PYQs, and study resources for ${Exam} ${className}. Download previous year question paper PDFs on StudyHub.`;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.yashguptaiiit.in";
   const canonicalUrl = `${siteUrl}/${rawExam}/${rawClass}`;
 
   return {
@@ -65,6 +65,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function Page({ params }: Props) {
+  const session = await getServerSession(authOptions);
+  const isLoggedIn = !!session?.user;
   const Exam = (await params).Exam
   const className = decodeURIComponent((await params).Class)
 
@@ -79,6 +81,7 @@ export default async function Page({ params }: Props) {
   });
 
   const dbPapers: {
+    id: number;
     fileName: string;
     subject: string;
     year: number | null;
@@ -96,6 +99,7 @@ export default async function Page({ params }: Props) {
   const papers = dbPapers
     .filter(paper => !subjects.some(subject => subject.subjectName === paper.subject))
     .map(paper => ({
+      id: paper.id,
       title: paper.fileName,
       subject: paper.subject,
       year: paper.year,
@@ -125,11 +129,10 @@ export default async function Page({ params }: Props) {
 
   const subjectCards = subjects.map((subject, idx) => ({
     name: subject.subjectName,
-    notes: 0,
     icon: GetSubjectIcon(subject.subjectName),
     color: pickGradient(subject.subjectName, idx),
   }));
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.com";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://studyhub.yashguptaiiit.in";
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -159,6 +162,27 @@ export default async function Page({ params }: Props) {
     <main className="min-h-screen bg-slate-50 mb-16">
       <script
         type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Course",
+            name: `${Exam} ${className} Preparation & Study Material`,
+            description: `Comprehensive study materials, NCERT textbooks, and previous year question papers for ${Exam} ${className}.`,
+            provider: {
+              "@type": "EducationalOrganization",
+              name: "StudyHub",
+              sameAs: siteUrl,
+            },
+            hasCourseInstance: subjects.map((sub) => ({
+              "@type": "CourseInstance",
+              name: `${sub.subjectName} (${Exam} ${className})`,
+              url: `${siteUrl}/${Exam}/${encodeURIComponent(className)}/${encodeURIComponent(sub.subjectName)}`,
+            })),
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
@@ -184,27 +208,9 @@ export default async function Page({ params }: Props) {
         </div>
       </section>
 
-      {/* ================= HERO AD ================= */}
-
-      <section className="mx-auto mt-6 max-w-7xl px-4">
-        <div className="flex h-28 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-700 via-indigo-600 to-cyan-500 shadow-xl">
-          <div className="text-center text-white">
-            <p className="text-xs uppercase tracking-widest opacity-70">
-              Advertisement
-            </p>
-
-            <p className="text-xl font-semibold">
-              Leaderboard Banner (728 × 90)
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* ================= CONTENT ================= */}
 
-      <section className="mx-auto mt-10 grid max-w-7xl gap-8 px-4 lg:grid-cols-[1fr_260px]">
-        {/* Left */}
-
+      <section className="mx-auto mt-10 max-w-7xl px-4">
         <div>
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-slate-900">
@@ -226,7 +232,7 @@ export default async function Page({ params }: Props) {
               return (
                 <div
                   key={subject.name}
-                  className="group overflow-hidden rounded-3xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                  className="group overflow-hidden rounded-3xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl flex flex-col justify-between"
                 >
                   {/* Header */}
 
@@ -244,85 +250,25 @@ export default async function Page({ params }: Props) {
 
                   {/* Body */}
 
-                  <div className="space-y-5 p-6">
-                    {/* <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                      ✓ PYQs Available
-                    </span> */}
-
-                    <div className="space-y-3 text-sm">
-                      {/* <div className="flex items-center gap-3">
-                        <BookOpen className="h-4 w-4 text-blue-600" />
-                        {subject.chapters} Chapters
-                      </div> */}
-
-                      {subject.notes > 0 ? <div className="flex items-center gap-3">
-                        <FileText className="h-4 w-4 text-blue-600" />
-                        {subject.notes} Notes
-                      </div> : null}
-
-                      {/* <div className="flex items-center gap-3">
-                        <ClipboardList className="h-4 w-4 text-blue-600" />
-                        {subject.pyqs} PYQs
-                      </div> */}
+                  <div className="space-y-5 p-6 flex-1 flex flex-col justify-between">
+                    <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                      <BookOpen className="h-4 w-4 text-blue-600" />
+                      <span>Textbooks, PYQs & AI Study Tools</span>
                     </div>
-                    <Link href={`/${Exam}/${className}/${subject.name}`}>
-                      <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700">
-                        Explore
 
+                    <Link href={`/${Exam}/${className}/${subject.name}`} className="block w-full">
+                      <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700">
+                        Explore Subject
                         <ArrowRight className="h-4 w-4" />
                       </button>
                     </Link>
-                    {/* <button className="w-full rounded-xl border border-blue-600 py-3 font-semibold text-blue-600 transition hover:bg-blue-50">
-                      Previous Year Papers
-                    </button> */}
                   </div>
                 </div>
               );
             })}
           </div>
-          <PreviousYearPapers papers={papers} />
-          {/* Bottom Advertisement */}
-
-          <div className="mt-12 flex justify-center">
-            <div className="flex h-[250px] w-[300px] items-center justify-center rounded-2xl border bg-white shadow">
-              <div className="text-center">
-                <p className="text-xs uppercase tracking-widest text-slate-500">
-                  Advertisement
-                </p>
-
-                <p className="mt-2 font-semibold">
-                  Medium Rectangle
-                </p>
-
-                <p className="text-sm text-slate-500">
-                  300 × 250
-                </p>
-              </div>
-            </div>
-          </div>
+          <PreviousYearPapers papers={papers} isLoggedIn={isLoggedIn} />
         </div>
-
-        {/* Sidebar */}
-
-        <aside className="hidden lg:block">
-          <div className="sticky top-24 rounded-2xl border bg-white p-4 shadow">
-            <div className="flex h-[600px] items-center justify-center rounded-xl bg-gradient-to-b from-blue-100 to-cyan-50">
-              <div className="text-center">
-                <p className="text-xs uppercase tracking-widest text-slate-500">
-                  Advertisement
-                </p>
-
-                <p className="mt-2 font-semibold">
-                  Skyscraper
-                </p>
-
-                <p className="text-sm text-slate-500">
-                  160 × 600
-                </p>
-              </div>
-            </div>
-          </div>
-        </aside>
       </section>
     </main>
   );

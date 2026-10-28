@@ -53,6 +53,11 @@ export default function SignupCard() {
             return;
         }
 
+        if (formData.password.length < 6) {
+            setErrorMsg("Password must be at least 6 characters long.");
+            return;
+        }
+
         if (formData.password !== formData.confirmPassword) {
             setErrorMsg("Passwords do not match.");
             return;
@@ -76,7 +81,12 @@ export default function SignupCard() {
                 setErrorMsg(data.error || "Failed to send OTP. Please try again.");
             } else {
                 setStep("otp");
-                setInfoMsg(`Verification code sent to ${formData.email}`);
+                if (data.devOtp) {
+                    setOtp(data.devOtp);
+                    setInfoMsg(`Code sent! (Dev mode: auto-filled ${data.devOtp})`);
+                } else {
+                    setInfoMsg(`Verification code sent to ${formData.email}`);
+                }
             }
         } catch (err: any) {
             setErrorMsg("Network error. Please check your connection.");

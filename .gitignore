@@ -11,6 +11,7 @@ node_modules
 .env.development.local
 .env.test.local
 .env.production.local
+!.env.example
 
 # Testing
 coverage
@@ -27,7 +28,6 @@ out/
 build
 dist
 
-
 # Debug
 npm-debug.log*
 yarn-debug.log*
@@ -36,3 +36,11 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+*.tsbuildinfo
+__pycache__/
+*.pyc
+
+# Pipeline caches & downloads
+scripts/pyq-pipeline/downloads/
+scripts/pyq-pipeline/__pycache__/
+diagrams/

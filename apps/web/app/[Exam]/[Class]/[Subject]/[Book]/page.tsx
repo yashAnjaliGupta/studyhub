@@ -1,17 +1,15 @@
 import PdfReaderClientWrapper from "../../../../../components/PDFViewer/PdfReaderClientWrapper";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, PlayCircle } from "lucide-react";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../api/auth/[...nextauth]/route";
+import { authOptions } from "@repo/auth";
 
-import { PrismaClient } from "@repo/db/client";
+import { client } from "@repo/db/client";
 import Link from "next/link";
 import { getPaperUrl, ensureBookChaptersInS3 } from "../../../../../lib/s3";
 import type { BookChapterRecord } from "../../../../../lib/s3";
 import { processDocumentEmbeddings } from "../../../../../lib/embeddings";
 
 import type { Metadata } from "next";
-
-const client = new PrismaClient();
 type Props = {
   params: Promise<{
     Exam: string;
@@ -110,6 +108,7 @@ export default async function ReaderPage({ params }: Props) {
   });
 
   let book: { id?: number; chapterId?: number; fileId?: number; chapterName: string; pdfUrl: string; status?: string }[] = [];
+  let questionPaperId: string | number | null = null;
 
   if (dbChapters.length > 0) {
     // Lazy cache chapters to S3 on first open and retrieve CDN URLs
@@ -123,23 +122,25 @@ export default async function ReaderPage({ params }: Props) {
     }));
     // console.log(book);
 
-    // Check chapters for PENDING status and trigger vector embeddings page-by-page
-    for (const ch of dbChapters) {
-      console.log("document processing status:", ch.status);
-      if (ch.status === "PENDING" || ch.status === "FAILED" || !ch.status) {
-        await client.bookChapter.update({
-          where: { id: ch.id },
-          data: { status: "PROCESSING" },
-        });
-        console.log("processing...")
-        const targetUrl = book.find((b) => b.chapterName === ch.chapterName)?.pdfUrl || ch.pdfUrl;
-        console.log("document processing started [PDF URL]:", targetUrl);
-        processDocumentEmbeddings({
-          chapterId: ch.id,
-          pdfUrl: targetUrl,
-        }).catch((err) => {
-          console.error(`[ReaderPage] Background embedding error for chapter ${ch.id}:`, err);
-        });
+    // Only process vector embeddings if user is signed in
+    if (isLoggedIn) {
+      for (const ch of dbChapters) {
+        console.log("document processing status:", ch.status);
+        if (ch.status === "PENDING" || ch.status === "FAILED" || !ch.status) {
+          await client.bookChapter.update({
+            where: { id: ch.id },
+            data: { status: "PROCESSING" },
+          });
+          console.log("processing...")
+          const targetUrl = book.find((b) => b.chapterName === ch.chapterName)?.pdfUrl || ch.pdfUrl;
+          console.log("document processing started [PDF URL]:", targetUrl);
+          processDocumentEmbeddings({
+            chapterId: ch.id,
+            pdfUrl: targetUrl,
+          }).catch((err) => {
+            console.error(`[ReaderPage] Background embedding error for chapter ${ch.id}:`, err);
+          });
+        }
       }
     }
   } else {
@@ -160,6 +161,7 @@ export default async function ReaderPage({ params }: Props) {
     });
 
     if (paper) {
+      questionPaperId = paper.id;
       // Get CDN URL to view this PDF paper
       const pdfUrl = getPaperUrl(paper.s3Key);
       book = [
@@ -172,8 +174,8 @@ export default async function ReaderPage({ params }: Props) {
         },
       ];
 
-      // Check if status is PENDING and trigger vector embedding generation page-by-page
-      if (paper.status === "PENDING" || paper.status === "FAILED" || !paper.status) {
+      // Only process vector embeddings if user is signed in
+      if (isLoggedIn && (paper.status === "PENDING" || paper.status === "FAILED" || !paper.status)) {
         await client.file.update({
           where: { id: paper.id },
           data: { status: "PROCESSING" },
@@ -267,8 +269,37 @@ export default async function ReaderPage({ params }: Props) {
               );
             })}
           </div>
+
+          {isLoggedIn && questionPaperId && !decodeURIComponent(Exam).toUpperCase().includes("CBSE") && (() => {
+            const rawExam = Exam ? decodeURIComponent(Exam) : "";
+            const examName = rawExam.toUpperCase() === "JEE" ? "JEE Main" : (rawExam || "JEE Main");
+            return (
+            <div className="relative group flex-shrink-0 ml-3">
+              <a
+                href={`${process.env.NEXT_PUBLIC_TESTHUB_URL || "http://localhost:3001"}/exam/${encodeURIComponent(String(questionPaperId))}/configure?exam=${encodeURIComponent(examName)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-sm transition hover:bg-amber-300 active:scale-95 cursor-pointer"
+                aria-label="Attempt with TestHub"
+              >
+                <PlayCircle className="h-3.5 w-3.5 text-slate-950" />
+                <span>Attempt</span>
+              </a>
+              <div className="pointer-events-none absolute right-0 top-full mt-1.5 hidden group-hover:flex flex-col items-end z-50">
+                <span className="whitespace-nowrap rounded bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white shadow-xl ring-1 ring-white/10">
+                  Attempt with TestHub
+                </span>
+              </div>
+            </div>
+            );
+          })()}
         </div>
-        <PdfReaderClientWrapper Book={book} isLoggedIn={isLoggedIn} />
+        <PdfReaderClientWrapper
+          Book={book}
+          isLoggedIn={isLoggedIn}
+          paperId={decodeURIComponent(Exam).toUpperCase().includes("CBSE") ? null : questionPaperId}
+          examName={decodeURIComponent(Exam).toUpperCase() === "JEE" ? "JEE Main" : decodeURIComponent(Exam)}
+        />
       </div>
     </main>
   );

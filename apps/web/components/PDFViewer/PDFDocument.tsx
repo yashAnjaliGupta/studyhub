@@ -5,6 +5,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Loader2 } from "lucide-react";
+import { StudyHubLoader } from "../StudyHubLoader";
 import type { PdfDocumentProps } from "./reader";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -191,10 +192,12 @@ export default function PdfDocument({
 }
 
 function ViewerFallback({ label, muted }: { label: string; muted?: boolean }) {
+  if (muted) {
+    return <div className="p-8 text-sm text-slate-500 dark:text-slate-400">{label}</div>;
+  }
   return (
-    <div className="flex items-center gap-2 p-8 text-sm text-slate-500 dark:text-slate-400">
-      {!muted && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
-      {label}
+    <div className="flex flex-col items-center justify-center p-8">
+      <StudyHubLoader size={44} text={label} />
     </div>
   );
 }

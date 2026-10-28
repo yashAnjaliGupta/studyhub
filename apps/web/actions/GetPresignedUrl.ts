@@ -3,12 +3,11 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3 } from "../lib/s3";
-import { PrismaClient } from "@repo/db/client";
+import { client as dbClient } from "@repo/db/client";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../app/api/auth/[...nextauth]/route";
+import { authOptions } from "@repo/auth";
 
-const client = new PrismaClient() as any;
-
+const client = dbClient as any;
 
 export async function createUploadUrl(data: {
   exam: string;
@@ -18,7 +17,8 @@ export async function createUploadUrl(data: {
   fileType: string;
 }) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user?.email !== "yashgupta.yg318@gmail.com") {
+  const adminEmail = process.env.ADMIN_EMAIL || "yashgupta.yg318@gmail.com";
+  if (!session || session.user?.email !== adminEmail) {
     throw new Error("Unauthorized");
   }
   const key = `${data.exam}/${data.selectedClass}/${data.subject}/${data.fileName}`;
@@ -26,7 +26,7 @@ export async function createUploadUrl(data: {
   const existing = await client.file.findUnique({
     where: {
       s3Key: key,
-      status:{ in: ["UPLOADING", "COMPLETED"] }
+      status: { in: ["UPLOADING", "COMPLETED"] }
     }
   });
 
@@ -43,8 +43,7 @@ export async function createUploadUrl(data: {
       mimeType: data.fileType,
       s3Key: key,
     }
-  })
-
+  });
 
   const command = new PutObjectCommand({
     Bucket: process.env.AWS_BUCKET_NAME!,
@@ -55,10 +54,8 @@ export async function createUploadUrl(data: {
   const uploadUrl = await getSignedUrl(
     s3,
     command,
-
     { expiresIn: 300 }
   );
-
 
   return {
     uploadUrl,

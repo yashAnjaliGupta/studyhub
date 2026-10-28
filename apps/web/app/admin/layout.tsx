@@ -1,9 +1,6 @@
-import { Inter } from "next/font/google";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../api/auth/[...nextauth]/route";
+import { authOptions } from "@repo/auth";
 import { redirect } from "next/navigation";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export default async function AdminLayout({
   children,
@@ -11,13 +8,14 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }>) {
   const session = await getServerSession(authOptions);
+  const adminEmail = process.env.ADMIN_EMAIL || "yashgupta.yg318@gmail.com";
 
-  if (!session || session.user?.email !== "yashgupta.yg318@gmail.com") {
+  if (!session || session.user?.email !== adminEmail) {
     redirect("/");
   }
 
   return (
-    <div className={inter.className}>
+    <div>
       {children}
     </div>
   );
