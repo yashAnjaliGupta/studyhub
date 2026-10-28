@@ -22,7 +22,9 @@ export default function PreviousYearPapers({ papers, isLoggedIn }: PreviousYearP
     const params = useParams();
     const Exam = (params?.Exam as string) || "";
     const Class = (params?.Class as string) || "";
-    const testhubUrl = process.env.NEXT_PUBLIC_TESTHUB_URL || "http://localhost:3001";
+    const testhubUrl =
+        process.env.NEXT_PUBLIC_TESTHUB_URL ||
+        (process.env.NODE_ENV === "production" ? "https://testhub.yashguptaiiit.in" : "http://localhost:3001");
 
     const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
     const [expandedYears, setExpandedYears] = useState<Record<string, boolean>>({});

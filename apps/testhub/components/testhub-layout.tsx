@@ -132,9 +132,10 @@ function UserMenu() {
           <div className="pt-1">
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 setIsOpen(false);
-                signOut({ callbackUrl: '/' });
+                const data = await signOut({ redirect: false, callbackUrl: '/' });
+                window.location.href = data?.url || '/';
               }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-red-600 transition hover:bg-red-50"
             >

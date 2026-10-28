@@ -6,6 +6,10 @@ import bcrypt from "bcrypt";
 
 const client = dbClient as any;
 
+const isProduction = process.env.NODE_ENV === "production";
+const cookieDomain = process.env.COOKIE_DOMAIN || (isProduction ? ".yashguptaiiit.in" : undefined);
+const isSecure = isProduction;
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -118,8 +122,27 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        domain: process.env.COOKIE_DOMAIN || undefined,
-        secure: process.env.NODE_ENV === "production" && Boolean(process.env.NEXTAUTH_URL?.startsWith("https://")),
+        domain: cookieDomain,
+        secure: isSecure,
+      },
+    },
+    callbackUrl: {
+      name: "next-auth.callback-url",
+      options: {
+        sameSite: "lax",
+        path: "/",
+        domain: cookieDomain,
+        secure: isSecure,
+      },
+    },
+    csrfToken: {
+      name: "next-auth.csrf-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        domain: cookieDomain,
+        secure: isSecure,
       },
     },
   },

@@ -373,7 +373,7 @@ export default function PdfReaderLayout({
           <>
             <div className="relative group">
               <a
-                href={`${process.env.NEXT_PUBLIC_TESTHUB_URL || "http://localhost:3001"}/exam/${encodeURIComponent(String(paperId))}/configure?exam=${encodeURIComponent(examName || "JEE Main")}`}
+                href={`${process.env.NEXT_PUBLIC_TESTHUB_URL || (process.env.NODE_ENV === "production" ? "https://testhub.yashguptaiiit.in" : "http://localhost:3001")}/exam/${encodeURIComponent(String(paperId))}/configure?exam=${encodeURIComponent(examName || "JEE Main")}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-sm transition hover:bg-amber-300 active:scale-95 cursor-pointer"
