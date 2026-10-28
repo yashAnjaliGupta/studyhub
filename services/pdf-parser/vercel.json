@@ -1,6 +1,7 @@
 {
   "functions": {
     "api/index.py": {
+      "includeFiles": "app/**",
       "maxDuration": 60,
       "memory": 1024
     }
@@ -12,4 +13,3 @@
     }
   ]
 }
-

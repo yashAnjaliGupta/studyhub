@@ -22,8 +22,10 @@ logging.basicConfig(
 logger = logging.getLogger("pdf_parser.main")
 
 # Load environment variables (AWS Bedrock credentials, CDN URLs)
-_repo_root = Path(__file__).resolve().parents[3]
-_service_env = Path(__file__).resolve().parent.parent / ".env"
+_file_path = Path(__file__).resolve()
+_service_env = _file_path.parent.parent / ".env"
+_parents = _file_path.parents
+_repo_root = _parents[3] if len(_parents) > 3 else _file_path.parent.parent
 _testhub_env = _repo_root / "apps" / "testhub" / ".env"
 _root_env = _repo_root / ".env"
 

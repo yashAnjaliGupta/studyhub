@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 
 _pkg_dir = Path(__file__).resolve().parent
 _service_env = _pkg_dir.parent / ".env"
-_repo_root = _pkg_dir.parents[2]
+_repo_parents = _pkg_dir.parents
+_repo_root = _repo_parents[2] if len(_repo_parents) > 2 else _pkg_dir.parent
 _testhub_env = _repo_root / "apps" / "testhub" / ".env"
 _root_env = _repo_root / ".env"
 
