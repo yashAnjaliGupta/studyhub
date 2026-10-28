@@ -1,9 +1,10 @@
 {
+  "installCommand": "pip install -r requirements.txt",
+  "buildCommand": null,
   "functions": {
     "api/index.py": {
       "includeFiles": "app/**",
-      "maxDuration": 60,
-      "memory": 1024
+      "maxDuration": 60
     }
   },
   "rewrites": [
