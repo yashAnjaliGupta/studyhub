@@ -81,6 +81,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def root():
+    return {
+        "status": "healthy",
+        "service": "pdf-parser",
+        "version": "1.0.0",
+        "endpoints": {
+            "health": "/health",
+            "docs": "/docs",
+            "parse_paper": "/api/v1/parse-paper",
+            "upload_and_parse": "/api/v1/upload-and-parse"
+        }
+    }
+
 @app.get("/health")
 def health_check():
     return {

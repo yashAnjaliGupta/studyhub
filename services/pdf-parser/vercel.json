@@ -1,16 +1,4 @@
 {
   "installCommand": "pip install -r requirements.txt",
-  "buildCommand": null,
-  "functions": {
-    "api/index.py": {
-      "includeFiles": "app/**",
-      "maxDuration": 60
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index"
-    }
-  ]
+  "buildCommand": null
 }
