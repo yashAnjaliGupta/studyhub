@@ -4,11 +4,15 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { type TelemetryEvent, generateUUID } from './telemetry-event';
 
+export interface TelemetryOptions {
+  userId?: string;
+}
+
 /**
  * Hook to manage telemetry in browser/client
  * Provides a trackEvent function and automatically tracks page views
  */
-export function useTelemetry() {
+export function useTelemetry(options?: TelemetryOptions) {
   const [sessionId, setSessionId] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -62,31 +66,44 @@ export function useTelemetry() {
     }
   }, []);
 
+  const currentUserId = options?.userId;
+
   const trackPageView = useCallback(() => {
     const event: TelemetryEvent = {
       event_id: generateUUID(),
       timestamp: Date.now(),
       event_type: 'page_view',
       session_id: sessionId,
+      sessionId: sessionId,
+      user_id: currentUserId,
+      userId: currentUserId,
       page_url: typeof window !== 'undefined' ? window.location.pathname : '',
     };
     sendEvent(event);
-  }, [sessionId, sendEvent]);
+  }, [sessionId, currentUserId, sendEvent]);
 
   // Track page view on pathname change
   useEffect(() => {
     trackPageView();
   }, [pathname, trackPageView]);
 
-  const trackEvent = useCallback((event: Omit<TelemetryEvent, 'event_id' | 'timestamp'> & Partial<Pick<TelemetryEvent, 'event_id' | 'timestamp'>>) => {
+  const trackEvent = useCallback((event: (Omit<Partial<TelemetryEvent>, 'event_id' | 'timestamp'> & { event_type?: string; eventType?: string }) | Record<string, any>) => {
+    const uid = (typeof event.user_id === 'string' ? event.user_id : undefined) ||
+                (typeof event.userId === 'string' ? event.userId : undefined) ||
+                currentUserId;
+    const eventType = (event.event_type || event.eventType || 'custom') as string;
     const enriched: TelemetryEvent = {
       event_id: generateUUID(),
       timestamp: Date.now(),
+      event_type: eventType,
       session_id: sessionId,
+      sessionId: sessionId,
+      user_id: uid,
+      userId: uid,
       ...event,
     };
     sendEvent(enriched);
-  }, [sessionId, sendEvent]);
+  }, [sessionId, currentUserId, sendEvent]);
 
   // Optional global click tracking
   useEffect(() => {
@@ -110,13 +127,13 @@ export function useTelemetry() {
     return () => window.removeEventListener('click', handler);
   }, [trackEvent]);
 
-  return { trackEvent, sessionId };
+  return { trackEvent, sessionId, sendEvent };
 }
 
 /**
  * Provider component to initialize telemetry in the application
  */
-export function TelemetryProvider({ children }: { children: React.ReactNode }) {
-  useTelemetry();
+export function TelemetryProvider({ children, userId }: { children: React.ReactNode; userId?: string }) {
+  useTelemetry({ userId });
   return React.createElement(React.Fragment, null, children);
 }

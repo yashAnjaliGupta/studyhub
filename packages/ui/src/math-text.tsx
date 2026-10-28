@@ -16,7 +16,11 @@ export interface MathTextProps {
  */
 function renderKatexHtml(mathCode: string, displayMode: boolean): string {
   try {
-    return katex.renderToString(mathCode, {
+    const normalized = mathCode
+      .replace(/×/g, '\\times ')
+      .replace(/[⋅·]/g, '\\cdot ')
+      .replace(/¯/g, '-');
+    return katex.renderToString(normalized, {
       displayMode,
       throwOnError: false,
       output: 'htmlAndMathml',
@@ -26,6 +30,75 @@ function renderKatexHtml(mathCode: string, displayMode: boolean): string {
     console.warn('[MathText] KaTeX render error:', err);
     return mathCode;
   }
+}
+
+/**
+ * Splits table cells by pipe while strictly preserving math modulus |x| inside $...$
+ */
+function splitTableCells(rowText: string): string[] {
+  const trimmed = rowText.trim().replace(/^\|/, '').replace(/\|$/, '');
+  const cells: string[] = [];
+  let current = '';
+  let inMath = false;
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === '$') {
+      inMath = !inMath;
+      current += ch;
+    } else if (ch === '|' && !inMath) {
+      cells.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim().length > 0) {
+    cells.push(current.trim());
+  }
+  return cells;
+}
+
+/**
+ * Pre-processes text to ensure mathematical modulo |expr| and unwrapped LaTeX
+ * formulas (vectors, unit vectors, fractions) outside $ are safely converted to KaTeX math.
+ */
+function preprocessMathText(text: string): string {
+  if (!text) return '';
+
+  const mathRegex = /(\$\$[\s\S]*?\$\$|\$(?:\\\$|[^\$\n])+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g;
+
+  // 1. Modulo normalization: convert unwrapped |expr| or |expr|^2 outside math to $|expr|^2$
+  let parts = text.split(mathRegex);
+  for (let i = 0; i < parts.length; i += 2) {
+    let nonMath = parts[i];
+    if (!nonMath) continue;
+    nonMath = nonMath.replace(
+      /\|\s*([a-zA-Z0-9_\-\+\*\/\s\\\(\)\{\}\^\u03c0\u03b1\u03b2\u03bb\u03bc\u0394\u03a9]+?)\s*\|\s*(\^?\{?\d+\}?)?/g,
+      (match, inner, sup) => {
+        if (inner.includes('---') || inner.length > 60) return match;
+        const supStr = sup ? (sup.startsWith('^') ? sup : '^{' + sup.replace(/[\{\}]/g, '') + '}') : '';
+        return '$|' + inner.trim() + '|' + supStr + '$';
+      }
+    );
+    parts[i] = nonMath;
+  }
+  text = parts.join('');
+
+  // 2. Unwrapped LaTeX tokens outside math: \vec{...}, \hat{...}, \bar{...}, \frac{...}{...}
+  parts = text.split(mathRegex);
+  for (let i = 0; i < parts.length; i += 2) {
+    let nonMath = parts[i];
+    if (!nonMath) continue;
+    nonMath = nonMath.replace(
+      /(\\vec\{[a-zA-Z0-9]+\}|\\hat\{[a-zA-Z0-9]+\}|\\bar\{[a-zA-Z0-9]+\}|\\frac\{[^{}]+\}\{[^{}]+\})/g,
+      '$$$1$$'
+    );
+    parts[i] = nonMath;
+  }
+  text = parts.join('');
+
+  return text;
 }
 
 /**
@@ -202,6 +275,7 @@ export function MathText({
   onJumpToPage,
 }: MathTextProps) {
   let rawText = content || text || '';
+  rawText = preprocessMathText(rawText);
 
   // Auto-wrap unwrapped math expressions (with ^{ or _{) in $...$ if not already wrapped
   if (
@@ -218,34 +292,51 @@ export function MathText({
 
     const lines = rawText.split('\n');
     const blocks: ParsedBlock[] = [];
-    let currentTable: TableBlock | null = null;
+    let i = 0;
 
-    for (let i = 0; i < lines.length; i++) {
+    const isSeparatorRow = (l: string) =>
+      /^\|?[\s-:]+(\|[\s-:]+)+\|?$/.test(l.trim());
+
+    while (i < lines.length) {
       const line = lines[i]?.trim() || '';
 
-      // Check if line is a table row (has at least one pipe and content on both sides, or starts/ends with pipe)
-      const isTableRow = line.includes('|') && (line.startsWith('|') || line.split('|').length >= 2);
-      const isSeparator = /^\|?[\s-:]+(\|[\s-:]+)+\|?$/.test(line);
+      // Check if line starts a valid Markdown table:
+      // A table MUST have a separator row as the second row (i + 1)
+      if (
+        i + 1 < lines.length &&
+        isSeparatorRow(lines[i + 1] || '') &&
+        (line.startsWith('|') || splitTableCells(line).length >= 2)
+      ) {
+        const tableRows: string[][] = [];
+        tableRows.push(splitTableCells(line));
+        i += 2; // skip header and separator
 
-      if (isTableRow) {
-        if (!currentTable) {
-          currentTable = { type: 'table', rows: [] };
-          blocks.push(currentTable);
-        }
-        if (!isSeparator) {
-          const cells = line
-            .replace(/^\|/, '')
-            .replace(/\|$/, '')
-            .split('|')
-            .map((c) => c.trim());
-          if (cells.length > 0 && cells.some((c) => c.length > 0)) {
-            currentTable.rows.push(cells);
+        // Collect subsequent table data rows
+        while (i < lines.length) {
+          const rowLine = lines[i]?.trim() || '';
+          if (!rowLine || isSeparatorRow(rowLine)) {
+            if (isSeparatorRow(rowLine)) {
+              i++;
+              continue;
+            }
+            break;
+          }
+          const cells = splitTableCells(rowLine);
+          if (rowLine.startsWith('|') || cells.length >= 2) {
+            tableRows.push(cells);
+            i++;
+          } else {
+            break;
           }
         }
-      } else {
-        currentTable = null;
-        blocks.push({ type: 'line', text: lines[i] || '' });
+
+        blocks.push({ type: 'table', rows: tableRows });
+        continue;
       }
+
+      // Otherwise, it's a normal text line!
+      blocks.push({ type: 'line', text: lines[i] || '' });
+      i++;
     }
 
     return blocks.map((block, blockIdx) => {

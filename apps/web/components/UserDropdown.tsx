@@ -69,8 +69,7 @@ export const UserDropdown = ({ user }: UserDropdownProps) => {
 
   const handleLogout = async () => {
     setIsOpen(false);
-    const data = await signOut({ redirect: false, callbackUrl: '/' });
-    window.location.href = data?.url || '/';
+    await signOut({ callbackUrl: '/' });
   };
 
   const initials = getInitials(user.name, user.email);

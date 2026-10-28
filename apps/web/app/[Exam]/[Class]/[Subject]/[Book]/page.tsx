@@ -276,7 +276,7 @@ export default async function ReaderPage({ params }: Props) {
             return (
             <div className="relative group flex-shrink-0 ml-3">
               <a
-                href={`${process.env.NEXT_PUBLIC_TESTHUB_URL || (process.env.NODE_ENV === "production" ? "https://testhub.yashguptaiiit.in" : "http://localhost:3001")}/exam/${encodeURIComponent(String(questionPaperId))}/configure?exam=${encodeURIComponent(examName)}`}
+                href={`${process.env.NEXT_PUBLIC_TESTHUB_URL || "http://localhost:3001"}/exam/${encodeURIComponent(String(questionPaperId))}/configure?exam=${encodeURIComponent(examName)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-sm transition hover:bg-amber-300 active:scale-95 cursor-pointer"

@@ -12,52 +12,67 @@ The `@repo/telemetry` package provides event streaming and user behavior telemet
 
 ```mermaid
 flowchart LR
-    Client["Client Browser\n(useTelemetry / TelemetryProvider)"]
+    Client["Client Browser\n(useTelemetry / useExamTelemetry)"]
     API["Next.js Route\n(/api/telemetry)"]
     Producer["Kafka Producer\n(@repo/telemetry/producer)"]
-    Broker["Apache Kafka Broker\n(localhost:9092)"]
-    Topic["Kafka Topic\n(web_telemetry)"]
-    Consumer["Analytics / AI Consumer\n(External Go / Python worker)"]
+    Broker["Apache Kafka Broker\n(Cloud / Localhost)"]
+    WebTopic["Topic: studyhub-telemetry / web_telemetry\n(Pageviews, clicks)"]
+    ExamTopic["Topic: exam-telemetry\n(Attempts, questions, answers, reviews)"]
+    Consumer["Analytics / Insights Engine\n(External Go / Python worker)"]
 
     Client -->|HTTP POST JSON| API
     API -->|Send Batch| Producer
-    Producer -->|Publish| Broker
-    Broker -->|Partition| Topic
-    Topic -->|Stream| Consumer
+    Producer -->|Web Events| Broker
+    Producer -->|Exam Insights| Broker
+    Broker -->|Partition| WebTopic
+    Broker -->|Partition keyed by attemptId| ExamTopic
+    ExamTopic -->|Stream| Consumer
 ```
 
 ---
 
 ## 📋 Tracked Event Types (`event-types.ts`)
 
-| Event Type | Description |
-| :--- | :--- |
-| `PAGE_VIEW` | Page visit with path, referrer, and user session ID. |
-| `EXAM_STARTED` | Triggered when a student begins a mock test. |
-| `QUESTION_ANSWERED` | Triggered when an MCQ or numerical response is selected. |
-| `QUESTION_REVIEW_MARKED` | Flagged question for review in CBT palette. |
-| `DIAGRAM_CANVAS_STROKE` | Student sketch or scratchpad interaction on diagram canvas. |
-| `AI_CHAT_MESSAGE` | Query submitted to the embedded study chatbot. |
-| `CITATION_CLICKED` | Student clicked on `[Page X]` citation to jump to textbook source. |
+| Event Type | Topic | Key Insight Data | Description |
+| :--- | :--- | :--- | :--- |
+| `page_view` | `web_telemetry` | `user_id`, `session_id`, `page_url` | Page visit with path, referrer, and user session ID. |
+| `click` | `web_telemetry` | `user_id`, `metadata.tagName`, `metadata.id` | Global client UI click event. |
+| `attempt_started` | `exam-telemetry` | `user_id`, `attempt_id`, `paper_id` | Triggered when candidate initiates an exam test session. |
+| `question_viewed` | `exam-telemetry` | `user_id`, `attempt_id`, `question_id`, `sequenceNum` | Candidate navigated to and viewed a question. |
+| `answer_selected` | `exam-telemetry` | `user_id`, `attempt_id`, `question_id`, `option_id` | MCQ option or numerical response selected. |
+| `answer_changed` | `exam-telemetry` | `user_id`, `attempt_id`, `question_id`, `payload.previousOptionId`, `payload.newOptionId` | Candidate updated or changed their answer. |
+| `answer_cleared` | `exam-telemetry` | `user_id`, `attempt_id`, `question_id` | Response cleared by candidate. |
+| `question_navigated` | `exam-telemetry` | `user_id`, `attempt_id`, `payload.fromQuestionId`, `payload.toQuestionId` | Navigation transition between questions. |
+| `marked_for_review` | `exam-telemetry` | `user_id`, `attempt_id`, `question_id` | Flagged question for review in CBT palette. |
+| `focus_changed` | `exam-telemetry` | `user_id`, `attempt_id`, `payload.reason`, `payload.violationCount` | Proctoring violation or window tab switch. |
+| `attempt_submitted` | `exam-telemetry` | `user_id`, `attempt_id`, `paper_id`, `timeSpentSeconds`, `answeredCount` | Final or auto-submission of exam attempt. |
 
 ---
 
 ## 📦 Usage Examples
 
-### 1. In React Components
+### 1. In Exam CBT Components (`useExamTelemetry`)
 
 ```tsx
-import { useTelemetry } from "@repo/telemetry/hooks";
+import { useExamTelemetry } from "@repo/telemetry/hooks";
 
-export function QuestionOptionButton({ optionId }: { optionId: string }) {
-  const { trackEvent } = useTelemetry();
+export function ExamQuestionPalette({ paperId, attemptId, userId }: { paperId: string; attemptId: string; userId?: string }) {
+  const { trackQuestionViewed, trackAnswerSelected } = useExamTelemetry({
+    paperId,
+    attemptId,
+    userId,
+  });
 
-  const handleSelect = () => {
-    trackEvent("QUESTION_ANSWERED", {
-      selectedOptionId: optionId,
-      timestamp: Date.now(),
+  const handleSelectOption = (questionId: string, optionId: string) => {
+    trackAnswerSelected(questionId, optionId, {
+      subject: "Physics",
+      topic: "Mechanics",
     });
   };
+
+  return <button onClick={() => handleSelectOption("q_1", "opt_b")}>Select Option B</button>;
+}
+```
 
   return <button onClick={handleSelect}>Select Option</button>;
 }

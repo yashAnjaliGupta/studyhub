@@ -60,8 +60,13 @@ class TextExtractor:
             x0, y0, x1, y1 = bbox
             block_rect = pymupdf.Rect(x0, y0, x1, y1)
 
-            # Skip header/footer margin areas
-            if y1 < height * 0.06 or y0 > height * 0.94:
+            # Skip header/footer margin areas (while strictly preserving question blocks at top margin)
+            b_sample_text = "".join(s.get("text", "") for l in b.get("lines", []) for s in l.get("spans", [])).strip()
+            is_question = bool(re.search(r'\b(?:Q\s*\.?\s*\d+|Question\s*\d+)\b', b_sample_text, re.I))
+
+            if not is_question and (y1 < height * 0.04 or y0 > height * 0.96):
+                continue
+            if is_question and (y1 < height * 0.02 or y0 > height * 0.98):
                 continue
 
             # Process lines and spans

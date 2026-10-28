@@ -130,7 +130,7 @@ CRITICAL RULES:
 
 3. SECTIONS & PAGE RANGES:
    - Identify every section in each subject (e.g. Section 1, Section 2, Section 3, Section 4).
-   - In each section, identify 'startQuestion', 'endQuestion', 'questionType' (SINGLE_CHOICE, MULTIPLE_CHOICE, NUMERICAL, or MATRIX_MATCH), 'marksPerQuestion', 'negativeMarks'.
+   - In each section, identify 'startQuestion', 'endQuestion', 'questionType' (SINGLE_CHOICE, MULTIPLE_CHOICE, NUMERICAL, MATRIX_MATCH, SUBJECTIVE, or MIXED), 'marksPerQuestion', 'negativeMarks'.
    - Identify 'startPage' and 'endPage' (1-indexed based on the '--- [Page X] ---' markers in the text).
 
 Return a valid JSON object matching this schema:

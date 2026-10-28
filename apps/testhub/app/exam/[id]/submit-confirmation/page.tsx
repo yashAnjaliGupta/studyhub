@@ -12,9 +12,17 @@ export default function ExamSubmitConfirmationPage() {
   const searchParams = useSearchParams();
   const autoSubmitted = searchParams.get('autoSubmitted') === 'true';
   const reason = searchParams.get('reason');
-  const { trackAttemptSubmitted } = useExamTelemetry();
 
   const sessionData = useMemo(() => getExamSession(id), [id]);
+  const attemptId = sessionData?.attemptId || id;
+  const userId = sessionData?.userId;
+
+  const { trackAttemptSubmitted } = useExamTelemetry({
+    paperId: id,
+    attemptId,
+    userId,
+  });
+
   const answers = sessionData?.answers || {};
   const answeredCount = Object.keys(answers).filter(
     (k) => answers[k] !== undefined && answers[k] !== null && answers[k] !== ''
@@ -24,7 +32,14 @@ export default function ExamSubmitConfirmationPage() {
   const notAnsweredCount = Math.max(0, visitedCount - answeredCount);
 
   const submit = () => {
-    trackAttemptSubmitted(id);
+    trackAttemptSubmitted(attemptId, {
+      paperId: id,
+      answeredCount,
+      notAnsweredCount,
+      reviewCount,
+      visitedCount,
+      finalConfirmed: true,
+    });
     router.push(`/exam/${id}/results`);
   };
 

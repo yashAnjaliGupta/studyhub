@@ -47,7 +47,23 @@ export default function ExamPage() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
 
+  const userId = (session?.user as any)?.id ? String((session?.user as any).id) : session?.user?.email || undefined;
+
+  // Initialize or restore attemptId for session telemetry tracking
+  const [attemptId, setAttemptId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const existing = getExamSession(id);
+      if (existing?.attemptId) return existing.attemptId;
+      const gen = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `att_${Math.random().toString(36).substring(2, 11)}`;
+      return gen;
+    }
+    return `att_${id}_${Date.now()}`;
+  });
+
   const {
+    trackAttemptStarted,
     trackQuestionViewed,
     trackAnswerSelected,
     trackAnswerChanged,
@@ -55,7 +71,12 @@ export default function ExamPage() {
     trackQuestionNavigated,
     trackMarkedForReview,
     trackAttemptSubmitted,
-  } = useExamTelemetry();
+    trackFocusChanged,
+  } = useExamTelemetry({
+    paperId: id,
+    attemptId,
+    userId,
+  });
 
   // Paper & Questions State
   const [paper, setPaper] = useState<ProcessedPaper | null>(null);
@@ -66,6 +87,7 @@ export default function ExamPage() {
   const [review, setReview] = useState<Set<string>>(new Set());
   const [visited, setVisited] = useState<Set<string>>(new Set());
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
+  const hasTrackedStartRef = useRef(false);
 
   // Timer State: starts from paper duration or 180 minutes
   const [seconds, setSeconds] = useState(180 * 60);
@@ -235,10 +257,28 @@ export default function ExamPage() {
 
   const currentQuestion = questions[currentIndex] || questions[0];
 
+  // Track attempt started telemetry once paper is loaded and initialized
+  useEffect(() => {
+    if (paper && questions.length > 0 && !hasTrackedStartRef.current) {
+      hasTrackedStartRef.current = true;
+      trackAttemptStarted({
+        paperTitle: paper.title,
+        paperSubject: paper.subject,
+        examType: paper.examType,
+        totalQuestions: questions.length,
+        durationMinutes: paper.durationMin || 180,
+      });
+    }
+  }, [paper, questions.length, trackAttemptStarted]);
+
   // Record question view telemetry & visited state
   useEffect(() => {
     if (currentQuestion?.id) {
-      trackQuestionViewed(currentQuestion.id);
+      trackQuestionViewed(currentQuestion.id, {
+        subject: currentQuestion.subject || paper?.subject,
+        topic: currentQuestion.topic || (currentQuestion as any).topicId,
+        sequenceNum: currentQuestion.sequenceNum ?? (currentIndex + 1),
+      });
       setVisited((prev) => {
         if (prev.has(currentQuestion.id)) return prev;
         const next = new Set(prev);
@@ -246,7 +286,7 @@ export default function ExamPage() {
         return next;
       });
     }
-  }, [currentIndex, currentQuestion?.id, trackQuestionViewed]);
+  }, [currentIndex, currentQuestion?.id, currentQuestion?.subject, currentQuestion?.topic, currentQuestion?.sequenceNum, paper?.subject, trackQuestionViewed]);
 
   // Timer countdown
   useEffect(() => {
@@ -283,6 +323,11 @@ export default function ExamPage() {
 
       setViolationsCount((prev) => {
         const nextCount = prev + 1;
+        trackFocusChanged(true, {
+          reason,
+          violationCount: nextCount,
+          maxAllowed: 3,
+        });
         if (nextCount < 3) {
           // Warning 1 and 2: Show warning modal
           setShowWarningModal(true);
@@ -296,7 +341,7 @@ export default function ExamPage() {
         return nextCount;
       });
     },
-    [isTestStarted, autoSubmitted]
+    [isTestStarted, autoSubmitted, trackFocusChanged]
   );
 
   // Fullscreen change listener
@@ -470,17 +515,34 @@ export default function ExamPage() {
   const handleAnswerChange = (val: any) => {
     if (!currentQuestion) return;
     const previous = answers[currentQuestion.id];
+    const optionIdStr = typeof val === 'string' ? val : JSON.stringify(val);
+    const meta = {
+      subject: currentQuestion.subject || paper?.subject,
+      topic: currentQuestion.topic || (currentQuestion as any).topicId,
+      type: currentQuestion.type,
+      sequenceNum: currentQuestion.sequenceNum ?? (currentIndex + 1),
+    };
+
     if (previous === undefined) {
-      trackAnswerSelected(currentQuestion.id, JSON.stringify(val));
+      trackAnswerSelected(currentQuestion.id, optionIdStr, meta);
     } else if (JSON.stringify(previous) !== JSON.stringify(val)) {
-      trackAnswerChanged(currentQuestion.id, JSON.stringify(previous), JSON.stringify(val));
+      trackAnswerChanged(
+        currentQuestion.id,
+        typeof previous === 'string' ? previous : JSON.stringify(previous),
+        optionIdStr,
+        meta
+      );
     }
     setAnswers((prev) => ({ ...prev, [currentQuestion.id]: val }));
   };
 
   const clearCurrentResponse = () => {
     if (!currentQuestion) return;
-    trackAnswerCleared(currentQuestion.id);
+    trackAnswerCleared(currentQuestion.id, {
+      subject: currentQuestion.subject || paper?.subject,
+      topic: currentQuestion.topic || (currentQuestion as any).topicId,
+      sequenceNum: currentQuestion.sequenceNum ?? (currentIndex + 1),
+    });
     setAnswers((prev) => {
       const next = { ...prev };
       delete next[currentQuestion.id];
@@ -518,7 +580,11 @@ export default function ExamPage() {
       next.add(currentQuestion.id);
       return next;
     });
-    trackMarkedForReview(currentQuestion.id);
+    trackMarkedForReview(currentQuestion.id, {
+      subject: currentQuestion.subject || paper?.subject,
+      topic: currentQuestion.topic || (currentQuestion as any).topicId,
+      sequenceNum: currentQuestion.sequenceNum ?? (currentIndex + 1),
+    });
 
     if (currentIndex < questions.length - 1) {
       navigateToQuestion(currentIndex + 1);
@@ -529,7 +595,11 @@ export default function ExamPage() {
 
   const navigateToQuestion = (targetIndex: number) => {
     if (targetIndex < 0 || targetIndex >= questions.length || targetIndex === currentIndex) return;
-    trackQuestionNavigated(currentQuestion.id, questions[targetIndex].id);
+    trackQuestionNavigated(currentQuestion.id, questions[targetIndex].id, {
+      subject: currentQuestion.subject || paper?.subject,
+      fromIndex: currentIndex,
+      toIndex: targetIndex,
+    });
     setCurrentIndex(targetIndex);
     // Mark target as visited
     setVisited((prev) => {
@@ -549,10 +619,22 @@ export default function ExamPage() {
   };
 
   const handleFinalSubmit = (reason?: string) => {
-    trackAttemptSubmitted(id);
     const totalSecs = (paper?.durationMin || 180) * 60;
     const timeSpent = Math.max(0, totalSecs - seconds);
+    const answeredCount = Object.keys(answers).length;
+
+    trackAttemptSubmitted(attemptId, {
+      paperId: id,
+      paperTitle: paper?.title,
+      totalQuestions: questions.length,
+      answeredCount,
+      timeSpentSeconds: timeSpent,
+      reason,
+    });
+
     saveExamSession(id, {
+      attemptId,
+      userId,
       paperId: id,
       paperTitle: paper?.title || 'Practice Paper',
       startedAt: Date.now() - timeSpent * 1000,

@@ -47,6 +47,7 @@ class DiagramExtractor:
         self.paper_id = paper_id
         self.output_base_dir = output_base_dir
         self.registered_assets: List[Asset] = []
+        self.last_seen_q: Optional[int] = None
         self._init_s3()
 
     def _init_s3(self):
@@ -113,7 +114,9 @@ class DiagramExtractor:
 
         def match_spatial_owner(d_y0: float, d_y1: float) -> Optional[int]:
             if not q_locs:
-                return None
+                return self.last_seen_q
+            if q_locs and d_y1 < q_locs[0][1] and self.last_seen_q is not None:
+                return self.last_seen_q
             for idx, (qn, qy0, qy1) in enumerate(q_locs):
                 next_qy0 = q_locs[idx + 1][1] if idx + 1 < len(q_locs) else ph * 0.95
                 if (qy0 - 15 <= d_y0 < next_qy0) or (qy0 <= (d_y0 + d_y1) / 2.0 < next_qy0):
@@ -373,6 +376,9 @@ class DiagramExtractor:
                         extracted_bboxes.append(clip_rect)
         except Exception:
             pass
+
+        if q_locs:
+            self.last_seen_q = q_locs[-1][0]
 
         return diagrams
 

@@ -1,5 +1,5 @@
-from typing import List, Optional, Dict, Any, Union, Literal
-from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Union, Literal, get_args
+from pydantic import BaseModel, Field, field_validator
 
 QuestionType = Literal[
     "SINGLE_CHOICE",
@@ -19,9 +19,29 @@ QuestionType = Literal[
     "PASSAGE_BASED",
     "COMPREHENSION",
     "SUBJECTIVE",
+    "MIXED",
     "UNKNOWN",
     "OTHER"
 ]
+
+def normalize_question_type(val: Optional[Any], default: str = "OTHER") -> Optional[str]:
+    if not val:
+        return None
+    val_upper = str(val).strip().upper()
+    valid_types = get_args(QuestionType)
+    if val_upper in valid_types:
+        return val_upper
+    mapping = {
+        "MCQ": "SINGLE_CHOICE",
+        "SCQ": "SINGLE_CHOICE",
+        "MSQ": "MULTIPLE_CHOICE",
+        "NAT": "NUMERICAL",
+        "INTEGER_ANSWER": "INTEGER",
+        "DECIMAL_ANSWER": "DECIMAL",
+        "FILL_IN_THE_BLANKS": "FILL_IN_THE_BLANK",
+        "TRUE/FALSE": "TRUE_FALSE",
+    }
+    return mapping.get(val_upper, default)
 
 ReviewStatus = Literal[
     "NOT_REVIEWED",
@@ -98,6 +118,13 @@ class Question(BaseModel):
     reviewStatus: Optional[ReviewStatus] = "NOT_REVIEWED"
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("type", mode="before")
+    @classmethod
+    def sanitize_type(cls, v):
+        if not v:
+            return "SINGLE_CHOICE"
+        return normalize_question_type(v, default="OTHER")
+
 class Section(BaseModel):
     number: Optional[Union[int, str]] = None
     title: Optional[str] = None
@@ -110,6 +137,13 @@ class Section(BaseModel):
     questions: List[Question] = Field(default_factory=list)
     sourcePages: List[int] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("questionType", mode="before")
+    @classmethod
+    def sanitize_question_type(cls, v):
+        if not v:
+            return None
+        return normalize_question_type(v, default="OTHER")
 
 class Subject(BaseModel):
     name: Optional[str] = None

@@ -1,6 +1,8 @@
 import type { ProcessedPaper, ProcessedQuestion } from './paper-service';
 
 export interface ExamSessionData {
+  attemptId?: string;
+  userId?: string;
   paperId: string;
   paperTitle: string;
   startedAt: number;

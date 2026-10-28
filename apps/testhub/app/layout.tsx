@@ -3,6 +3,7 @@ import 'katex/dist/katex.min.css';
 import type { Metadata } from 'next';
 import { TestHubLayout } from '../components/testhub-layout';
 import { AuthProvider } from '../components/auth-provider';
+import { TestHubTelemetryProvider } from '../components/telemetry-provider';
 
 const siteUrl =
   process.env.NEXT_PUBLIC_TESTHUB_URL ||
@@ -79,7 +80,9 @@ export default function RootLayout({
     <html lang="en" className="font-sans">
       <body>
         <AuthProvider>
-          <TestHubLayout>{children}</TestHubLayout>
+          <TestHubTelemetryProvider>
+            <TestHubLayout>{children}</TestHubLayout>
+          </TestHubTelemetryProvider>
         </AuthProvider>
       </body>
     </html>

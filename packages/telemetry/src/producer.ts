@@ -1,6 +1,7 @@
 import { Kafka, CompressionTypes, Partitioners, type Producer } from 'kafkajs';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { isExamTelemetryEvent } from './event-types';
 
 export * from './event-types';
 // export * from './telemetry-event';
@@ -10,9 +11,9 @@ let producerInstance: Producer | null = null;
 let isConnected = false;
 
 export function getKafkaBrokers(): string {
-  const brokers = process.env.KAFKA_BROKERS?.trim();
+  const brokers = (process.env.KAFKA_BROKERS || process.env.KAFKA_BOOTSTRAP_SERVERS)?.trim();
   if (!brokers) {
-    throw new Error('KAFKA_BROKERS environment variable is not defined. Please check your .env file.');
+    throw new Error('KAFKA_BROKERS or KAFKA_BOOTSTRAP_SERVERS environment variable is not defined. Please check your .env file.');
   }
 
   const brokerPattern = /^([a-zA-Z0-9.-]+:\d+)(,([a-zA-Z0-9.-]+:\d+))*$/;
@@ -92,22 +93,79 @@ export async function connectProducer(): Promise<Producer> {
   return p;
 }
 
-export async function sendTelemetryEvent(event: Record<string, unknown>): Promise<void> {
-  const topic = process.env.KAFKA_TOPIC ?? 'web_telemetry';
+export function resolveKafkaTopic(event: Record<string, unknown>, explicitTopic?: string): string {
+  if (explicitTopic) return explicitTopic;
+  if (typeof event.topic === 'string' && event.topic) return event.topic;
+  if (typeof event.topic_name === 'string' && event.topic_name) return event.topic_name;
+
+  if (isExamTelemetryEvent(event)) {
+    return process.env.KAFKA_EXAM_TOPIC ?? 'exam-telemetry';
+  }
+
+  return process.env.KAFKA_TOPIC ?? 'web_telemetry';
+}
+
+export async function sendTelemetryEvent(
+  event: Record<string, unknown>,
+  targetTopic?: string
+): Promise<void> {
+  const topic = resolveKafkaTopic(event, targetTopic);
   try {
     const p = await connectProducer();
-    console.log(topic, 'Event', event);
+    const eventType = (event.eventType || event.event_type || 'event') as string;
+    console.log(`[Kafka Telemetry] Publishing to topic "${topic}":`, eventType, {
+      attemptId: event.attemptId || event.attempt_id,
+      questionId: event.questionId || event.question_id,
+      userId: event.userId || event.user_id
+    });
+
+    const messageKey = (event.attemptId || event.attempt_id || event.userId || event.user_id || event.sessionId || event.session_id || undefined) as string | undefined;
+
     await p.send({
       topic,
       messages: [
         {
+          key: messageKey,
           value: JSON.stringify(event),
         },
       ],
     });
   } catch (error) {
-    console.error('Failed to send telemetry event:', error);
+    console.error(`Failed to send telemetry event to topic ${topic}:`, error);
     throw error;
+  }
+}
+
+export async function sendTelemetryBatch(
+  events: Record<string, unknown>[],
+  targetTopic?: string
+): Promise<void> {
+  if (!events || events.length === 0) return;
+  const p = await connectProducer();
+
+  // Group events by destination topic
+  const topicGroups = new Map<string, Array<{ key?: string; value: string }>>();
+
+  for (const event of events) {
+    const topic = resolveKafkaTopic(event, targetTopic);
+    const key = (event.attemptId || event.attempt_id || event.userId || event.user_id || event.sessionId || event.session_id || undefined) as string | undefined;
+    const item = { key, value: JSON.stringify(event) };
+
+    const group = topicGroups.get(topic) || [];
+    group.push(item);
+    topicGroups.set(topic, group);
+  }
+
+  for (const [topic, messages] of topicGroups.entries()) {
+    try {
+      await p.send({
+        topic,
+        messages,
+      });
+    } catch (err) {
+      console.error(`Failed to send batch of ${messages.length} events to topic ${topic}:`, err);
+      throw err;
+    }
   }
 }
 
