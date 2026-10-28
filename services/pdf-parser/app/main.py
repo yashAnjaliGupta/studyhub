@@ -15,7 +15,11 @@ except ImportError:
     import fitz as pymupdf
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        pass
 
 # Configure clean, structured logging
 logging.basicConfig(

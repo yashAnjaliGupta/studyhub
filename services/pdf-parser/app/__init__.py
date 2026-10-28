@@ -1,7 +1,11 @@
 """PDF Parser Service Application Package"""
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        pass
 
 _pkg_dir = Path(__file__).resolve().parent
 _service_env = _pkg_dir.parent / ".env"
