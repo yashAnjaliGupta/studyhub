@@ -1,5 +1,20 @@
-import time
+import sys
 import os
+
+print(f"=== VERCEL PYTHON ENVIRONMENT DEBUG ===")
+print(f"Python Version: {sys.version}")
+print(f"sys.path: {sys.path}")
+for p in sys.path:
+    if os.path.isdir(p):
+        try:
+            items = os.listdir(p)
+            pymupdf_items = [i for i in items if "pymupdf" in i.lower() or "fitz" in i.lower()]
+            print(f"Path: {p} | Total items: {len(items)} | MuPDF matches: {pymupdf_items} | Sample: {items[:8]}")
+        except Exception as err:
+            print(f"Path: {p} error: {err}")
+print(f"=======================================")
+
+import time
 import io
 import re
 import json
