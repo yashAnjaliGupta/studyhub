@@ -16,7 +16,8 @@
     "KAFKA_TOPIC",
     "KAFKA_SASL_MECHANISM",
     "KAFKA_SASL_USERNAME",
-    "KAFKA_SASL_PASSWORD"
+    "KAFKA_SASL_PASSWORD",
+    "PDF_PARSER_SERVICE_URL"
   ],
   "tasks": {
     "build": {
