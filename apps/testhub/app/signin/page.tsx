@@ -204,7 +204,10 @@ function SignInContent() {
 
         <div className="text-center text-xs text-[#68778b]">
           Looking for StudyHub main portal?{' '}
-          <a href="http://localhost:3000" className="font-semibold text-[#0875f9] hover:underline">
+          <a
+            href={process.env.NEXT_PUBLIC_STUDYHUB_URL || "https://studyhub.yashguptaiiit.in"}
+            className="font-semibold text-[#0875f9] hover:underline"
+          >
             Go to StudyHub
           </a>
         </div>

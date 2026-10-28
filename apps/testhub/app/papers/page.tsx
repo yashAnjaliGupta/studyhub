@@ -631,9 +631,11 @@ export default function PapersLibraryPage() {
                     {activePapersInModal.map((paper) => {
                       const isCbse = paper.exam.toUpperCase() === 'CBSE';
                       const configUrl = `/exam/${encodeURIComponent(paper.id)}/configure`;
+                      const studyhubBaseUrl =
+                        process.env.NEXT_PUBLIC_STUDYHUB_URL || "https://studyhub.yashguptaiiit.in";
                       const pdfViewerUrl =
                         paper.pdfViewerUrl ||
-                        `http://localhost:3000/${encodeURIComponent(paper.exam)}/${encodeURIComponent(paper.className)}/${encodeURIComponent(paper.rawSubject || paper.subject)}/${encodeURIComponent(paper.fileName)}`;
+                        `${studyhubBaseUrl}/${encodeURIComponent(paper.exam)}/${encodeURIComponent(paper.className)}/${encodeURIComponent(paper.rawSubject || paper.subject)}/${encodeURIComponent(paper.fileName)}`;
 
                       return (
                         <div

@@ -95,11 +95,12 @@ export const authOptions: NextAuthOptions = {
 
       try {
         const urlObj = new URL(url);
-        // Allow cross-app SSO redirects between localhost ports (3000, 3001) in development
+        // Allow cross-app SSO redirects between localhost and yashguptaiiit.in subdomains
         if (
           urlObj.hostname === "localhost" ||
           urlObj.hostname === "127.0.0.1" ||
-          urlObj.hostname.endsWith(".studyhub.yashguptaiiit.in")
+          urlObj.hostname === "yashguptaiiit.in" ||
+          urlObj.hostname.endsWith(".yashguptaiiit.in")
         ) {
           return url;
         }

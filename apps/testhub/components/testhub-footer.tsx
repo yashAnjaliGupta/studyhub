@@ -7,6 +7,8 @@ export function TestHubFooter() {
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
 
+  const studyhubUrl = process.env.NEXT_PUBLIC_STUDYHUB_URL || "https://studyhub.yashguptaiiit.in";
+
   return (
     <footer className="border-t border-slate-800 bg-[#0c192c] text-slate-400">
       {/* Top Banner */}
@@ -110,7 +112,7 @@ export function TestHubFooter() {
               </li>
               <li>
                 <a
-                  href="http://localhost:3000"
+                  href={studyhubUrl}
                   className="hover:text-white transition-colors flex items-center gap-1.5 text-blue-400"
                 >
                   StudyHub Textbooks & PYQs ↗
@@ -144,7 +146,7 @@ export function TestHubFooter() {
               )}
               <li>
                 <a
-                  href="http://localhost:3000/terms"
+                  href={`${studyhubUrl}/terms`}
                   className="hover:text-white transition-colors"
                 >
                   Terms of Service
@@ -152,7 +154,7 @@ export function TestHubFooter() {
               </li>
               <li>
                 <a
-                  href="http://localhost:3000/privacy"
+                  href={`${studyhubUrl}/privacy`}
                   className="hover:text-white transition-colors"
                 >
                   Privacy Policy
@@ -175,10 +177,10 @@ export function TestHubFooter() {
           <p>© {new Date().getFullYear()} TestHub by StudyHub. All rights reserved.</p>
 
           <div className="flex items-center gap-6">
-            <a href="http://localhost:3000/terms" className="hover:text-slate-300 transition-colors">
+            <a href={`${studyhubUrl}/terms`} className="hover:text-slate-300 transition-colors">
               Terms
             </a>
-            <a href="http://localhost:3000/privacy" className="hover:text-slate-300 transition-colors">
+            <a href={`${studyhubUrl}/privacy`} className="hover:text-slate-300 transition-colors">
               Privacy
             </a>
             <span className="text-slate-400">

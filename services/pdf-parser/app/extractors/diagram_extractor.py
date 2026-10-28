@@ -1,6 +1,7 @@
 import os
 import io
 import re
+import logging
 try:
     import pymupdf
 except ImportError:
@@ -8,6 +9,8 @@ except ImportError:
 from PIL import Image
 from typing import List, Dict, Any, Optional, Tuple, Union
 from ..schemas import Asset, AssetRef
+
+logger = logging.getLogger("pdf_parser.diagrams")
 
 class ExtractedDiagram:
     def __init__(
@@ -44,6 +47,44 @@ class DiagramExtractor:
         self.paper_id = paper_id
         self.output_base_dir = output_base_dir
         self.registered_assets: List[Asset] = []
+        self._init_s3()
+
+    def _init_s3(self):
+        self.s3_client = None
+        self.bucket_name = os.environ.get("AWS_BUCKET_NAME")
+        self.cdn_url = (os.environ.get("NEXT_PUBLIC_CDN_URL") or "").rstrip("/")
+        self.aws_region = os.environ.get("AWS_REGION", "us-east-1")
+
+        has_creds = bool(os.environ.get("AWS_ACCESS_KEY_ID") and os.environ.get("AWS_SECRET_ACCESS_KEY"))
+        if self.bucket_name and has_creds and self.bucket_name != "your-s3-bucket-name":
+            try:
+                import boto3
+                self.s3_client = boto3.client(
+                    "s3",
+                    region_name=self.aws_region,
+                    aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
+                    aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
+                )
+            except Exception as e:
+                logger.warning(f"[DiagramExtractor] S3 client initialization failed: {e}")
+
+    def _upload_to_s3(self, key: str, image_bytes: bytes, content_type: str = "image/webp") -> Optional[str]:
+        if not self.s3_client or not self.bucket_name:
+            return None
+        try:
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=key,
+                Body=image_bytes,
+                ContentType=content_type,
+                CacheControl="public, max-age=31536000, immutable"
+            )
+            if self.cdn_url:
+                return f"{self.cdn_url}/{key}"
+            return f"https://{self.bucket_name}.s3.{self.aws_region}.amazonaws.com/{key}"
+        except Exception as e:
+            logger.warning(f"[DiagramExtractor] Failed to upload diagram to S3 key '{key}': {e}")
+            return None
 
     def extract_page_diagrams(self, page_index: int) -> List[ExtractedDiagram]:
         page = self.doc[page_index]
@@ -339,6 +380,9 @@ class DiagramExtractor:
         """Saves diagrams to public storage and builds the canonical Asset registry with spatial context."""
         self.registered_assets = []
         page_counters: Dict[int, int] = {}
+        s3_success_count = 0
+
+        clean_paper_id = re.sub(r'[^a-zA-Z0-9_\-]', '_', self.paper_id)
 
         for diag in all_diagrams:
             p_num = diag.page_num
@@ -350,17 +394,33 @@ class DiagramExtractor:
             filename = f"{asset_id}.{diag.ext}"
 
             url = None
+
+            # 1. Preferred Production Target: AWS S3 + CDN
+            s3_key = f"diagrams/{clean_paper_id}/{filename}"
+            s3_url = self._upload_to_s3(s3_key, diag.image_bytes, content_type=f"image/{diag.ext}")
+            if s3_url:
+                s3_success_count += 1
+
+            # 2. Local filesystem output directory (if available in local monorepo)
             if self.output_base_dir:
-                target_dir = os.path.join(self.output_base_dir, self.paper_id)
-                os.makedirs(target_dir, exist_ok=True)
-                file_path = os.path.join(target_dir, filename)
-                with open(file_path, "wb") as f:
-                    f.write(diag.image_bytes)
-                url = f"/diagrams/{self.paper_id}/{filename}"
-            else:
+                try:
+                    target_dir = os.path.join(self.output_base_dir, self.paper_id)
+                    os.makedirs(target_dir, exist_ok=True)
+                    file_path = os.path.join(target_dir, filename)
+                    with open(file_path, "wb") as f:
+                        f.write(diag.image_bytes)
+                    if not s3_url:
+                        url = f"/diagrams/{self.paper_id}/{filename}"
+                except Exception as io_err:
+                    logger.warning(f"[DiagramExtractor] Failed to write local diagram file: {io_err}")
+
+            if s3_url:
+                url = s3_url
+            elif not url:
+                # 3. Fallback when neither S3 nor local disk directory is available
                 import base64
                 b64 = base64.b64encode(diag.image_bytes).decode("ascii")
-                url = f"data:image/webp;base64,{b64}"
+                url = f"data:image/{diag.ext};base64,{b64}"
 
             diag.public_url = url
 
@@ -388,5 +448,11 @@ class DiagramExtractor:
                     "captionContext": diag.caption_context
                 }
             ))
+
+        if s3_success_count > 0:
+            logger.info(
+                f"[DiagramExtractor] Successfully uploaded {s3_success_count}/{len(all_diagrams)} diagrams "
+                f"to S3 bucket '{self.bucket_name}' (CDN prefix: {self.cdn_url or 'S3 Direct'})"
+            )
 
         return self.registered_assets

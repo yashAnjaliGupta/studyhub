@@ -203,7 +203,16 @@ export function TestHubLayout({ children }: { children: ReactNode }) {
             })}
           </nav>
 
-          <UserMenu />
+          <div className="flex items-center gap-2">
+            <a
+              href={process.env.NEXT_PUBLIC_STUDYHUB_URL || "https://studyhub.yashguptaiiit.in"}
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+            >
+              StudyHub Portal ↗
+            </a>
+
+            <UserMenu />
+          </div>
         </div>
 
         {isExamFlow && examPrefix && (
