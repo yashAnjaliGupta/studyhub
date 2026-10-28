@@ -40,7 +40,8 @@ yarn-error.log*
 __pycache__/
 *.pyc
 
-# Pipeline caches & downloads
-scripts/pyq-pipeline/downloads/
-scripts/pyq-pipeline/__pycache__/
+# Scripts
+scripts/
+
+# Diagrams
 diagrams/

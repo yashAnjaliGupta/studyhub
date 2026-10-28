@@ -4,7 +4,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2B-336791?logo=postgresql)](https://www.postgresql.org/)
 [![pgvector](https://img.shields.io/badge/pgvector-Vector%20Search-38a169)](https://github.com/pgvector/pgvector)
 
-The `@repo/db` package provides the unified database client, Prisma ORM schema, and database migration history shared across the entire StudyHub monorepo (`apps/web`, `apps/testhub`, and ingestion scripts).
+The `@repo/db` package provides the unified database client, Prisma ORM schema, and database migration history shared across the entire StudyHub monorepo (`apps/web` and `apps/testhub`).
 
 ---
 
@@ -58,7 +58,7 @@ Create `.env` inside `packages/db/`:
 # Primary PostgreSQL connection string
 DATABASE_URL="postgresql://postgres:password@localhost:5432/studybyd?schema=public"
 
-# Optional: Remote Neon PostgreSQL instance for dual-sync scripts
+# Optional: Remote Neon PostgreSQL instance
 NEON_DATABASE_URL="postgresql://user:password@ep-sample-pooler.region.neon.tech/studyhub?sslmode=require"
 ```
 

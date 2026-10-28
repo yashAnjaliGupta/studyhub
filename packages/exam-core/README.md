@@ -3,7 +3,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.2-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![CBT Standards](https://img.shields.io/badge/Exam-CBT%20Standard%20Schema-0875f9)](https://github.com/)
 
-The `@repo/exam-core` package defines the canonical TypeScript models, type definitions, scoring specifications, and topic taxonomy that drive the computer-based testing engine in `apps/testhub` and ingestion pipelines in `scripts/pyq-pipeline`.
+The `@repo/exam-core` package defines the canonical TypeScript models, type definitions, scoring specifications, and topic taxonomy that drive the computer-based testing engine in `apps/testhub` and question ingestion pipelines.
 
 ---
 

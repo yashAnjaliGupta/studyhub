@@ -32,10 +32,6 @@ StudyHub Monorepo
 │   └── typescript-config/      # Shared TypeScript base presets
 ├── services/
 │   └── pdf-parser/             # FastAPI STEM document layout, watermark & diagram parsing service (:8001)
-├── scripts/
-│   ├── pyq-pipeline/           # Automated JEE PYQ crawler, downloader, extractor & S3 dual-sync
-│   ├── init-vector.ts          # Script to enable pgvector extension on PostgreSQL
-│   └── sync-s3.ts              # Script to synchronize S3 bucket documents with the database
 └── docker-compose.yml          # Local development stack (PostgreSQL + pgvector, Kafka, ZooKeeper)
 ```
 
@@ -64,11 +60,6 @@ StudyHub Monorepo
 - **Diagram Extraction**: Isolates vector schematics and raster images, converting them into compressed `.webp` assets.
 - **Formula Protection**: Preserves LaTeX mathematical symbols for KaTeX rendering.
 - Read more in [services/pdf-parser/README.md](services/pdf-parser/README.md).
-
-### 4. 🤖 PYQ Ingestion Pipeline (`scripts/pyq-pipeline`)
-- Crawls past examination papers spanning 2002 to 2025.
-- Downloads raw PDFs, extracts questions and answer keys, builds clean branded PDFs, uploads to S3, and synchronizes with PostgreSQL.
-- Read more in [scripts/pyq-pipeline/README.md](scripts/pyq-pipeline/README.md).
 
 ---
 
@@ -187,9 +178,6 @@ Run these scripts from the repository root:
 | `npm run lint` | Runs ESLint across all monorepo workspaces |
 | `npm run format` | Formats all code using Prettier |
 | `npm run db:generate` | Generates the Prisma client inside `packages/db` |
-| `npm run init:vector` | Executes raw SQL to activate the PostgreSQL `pgvector` extension |
-| `npm run sync-s3` | Synchronizes S3 bucket documents with the `File` database table |
-| `npm run ingest:pyq` | Runs the automated JEE past-paper ingestion pipeline |
 | `npm run parser:dev` | Launches the Python FastAPI PDF parsing microservice |
 
 ---
