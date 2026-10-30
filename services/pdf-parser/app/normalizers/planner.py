@@ -133,6 +133,12 @@ CRITICAL RULES:
    - In each section, identify 'startQuestion', 'endQuestion', 'questionType' (SINGLE_CHOICE, MULTIPLE_CHOICE, NUMERICAL, MATRIX_MATCH, SUBJECTIVE, or MIXED), 'marksPerQuestion', 'negativeMarks'.
    - Identify 'startPage' and 'endPage' (1-indexed based on the '--- [Page X] ---' markers in the text).
 
+4. PAGE INDEPENDENCE & RUNNING ARTIFACTS (CRITICAL):
+   - NEVER treat a page boundary, page transition, or page break as the start or end of ANY entity (subject, section, passage, or question). Entities naturally span across multiple pages without interruption.
+   - RUNNING HEADERS & FOOTERS: Text at the top or bottom of pages (e.g., repeated exam titles, coaching institute watermarks, subject names repeated across pages, page counters like "3 / 19" or "Page 4") are purely typographical page artifacts. They MUST NOT be interpreted as new subjects, section boundaries, or question delimiters.
+   - QUESTIONS FLOW UNBROKEN ACROSS PAGES: A section NEVER ends merely because a page ends. For example, if Q15 is at the bottom of Page 3, Q16 at the top of Page 4 belongs to the EXACT same section unless an authentic question-type transition (e.g., from Single Choice to Numerical) or authentic subject change is declared in the text.
+   - ZERO QUESTION GAPS: Question numbering across consecutive sections MUST BE 100% CONTINUOUS without missing numbers. Never output gaps like Q1..Q15 followed by Q21..Q25; all intervening questions (e.g. Q16..Q20) must be included in the appropriate section.
+
 Return a valid JSON object matching this schema:
 {{
   "exam": {{
@@ -194,6 +200,22 @@ Return ONLY valid JSON."""
 
             exam_obj = Exam(**exam_data)
             subjects_data = data.get("subjects", [])
+
+            # Automatic Gap-Repair: Ensure complete question continuity across sections
+            for subj in subjects_data:
+                sections = subj.get("sections", [])
+                for idx in range(len(sections) - 1):
+                    cur_end = sections[idx].get("endQuestion")
+                    next_start = sections[idx + 1].get("startQuestion")
+                    if cur_end and next_start and next_start > cur_end + 1:
+                        logger.warning(
+                            f"[Planner] Gap detected in subject '{subj.get('name')}': Q{cur_end} to Q{next_start}. "
+                            f"Auto-repairing Section {sections[idx].get('number')} endQuestion: {cur_end} -> {next_start - 1}"
+                        )
+                        sections[idx]["endQuestion"] = next_start - 1
+                        next_sp = sections[idx + 1].get("startPage")
+                        if next_sp and sections[idx].get("endPage") and sections[idx]["endPage"] < next_sp:
+                            sections[idx]["endPage"] = next_sp
 
             # Slice page text for each section so workers get strictly scoped chunks
             pages_dict = {}
