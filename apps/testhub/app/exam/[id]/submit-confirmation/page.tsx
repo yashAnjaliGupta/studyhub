@@ -2,7 +2,6 @@
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo } from 'react';
-import { useExamTelemetry } from '@repo/telemetry/hooks';
 import { PageContainer, PageHeading, MetricCard, Panel } from '../../../../components/ui';
 import { getExamSession } from '../../../../lib/exam-session';
 
@@ -17,12 +16,6 @@ export default function ExamSubmitConfirmationPage() {
   const attemptId = sessionData?.attemptId || id;
   const userId = sessionData?.userId;
 
-  const { trackAttemptSubmitted } = useExamTelemetry({
-    paperId: id,
-    attemptId,
-    userId,
-  });
-
   const answers = sessionData?.answers || {};
   const answeredCount = Object.keys(answers).filter(
     (k) => answers[k] !== undefined && answers[k] !== null && answers[k] !== ''
@@ -32,14 +25,27 @@ export default function ExamSubmitConfirmationPage() {
   const notAnsweredCount = Math.max(0, visitedCount - answeredCount);
 
   const submit = () => {
-    trackAttemptSubmitted(attemptId, {
-      paperId: id,
-      answeredCount,
-      notAnsweredCount,
-      reviewCount,
-      visitedCount,
-      finalConfirmed: true,
-    });
+    try {
+      fetch('/api/exam/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attemptId,
+          userId,
+          paperId: id,
+          paperTitle: sessionData?.paperTitle,
+          answers: sessionData?.answers || {},
+          telemetry: sessionData?.telemetry || {},
+          subjectTimeSpent: sessionData?.subjectTimeSpent || {},
+          durationSeconds: sessionData?.durationSeconds,
+          timeSpentSeconds: sessionData?.timeSpentSeconds,
+          violationsCount: sessionData?.violationsCount,
+          autoSubmitted,
+          autoSubmitReason: reason,
+        }),
+      }).catch((e) => console.warn('[ExamSubmit] Submit API call error:', e));
+    } catch {}
+
     router.push(`/exam/${id}/results`);
   };
 

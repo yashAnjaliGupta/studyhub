@@ -45,3 +45,12 @@ scripts/
 
 # Diagrams
 diagrams/
+
+# Planning specifications and design artifacts
+planning/
+
+# Test artifacts, pseudo attempt dumps, and scratch files
+pseudo_*.json
+*pseudo*
+scratch/
+scratch_*

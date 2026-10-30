@@ -38,7 +38,7 @@ export function getKafkaClient(): Kafka {
     const caLocation = process.env.KAFKA_SSL_CA_LOCATION;
     if (caLocation) {
       sslConfig = {
-        ca: [readFileSync(join(process.cwd(), caLocation), 'utf8')],
+        ca: [readFileSync(join(/*turbopackIgnore: true*/ process.cwd(), caLocation), 'utf8')],
         rejectUnauthorized: process.env.KAFKA_SSL_REJECT_UNAUTHORIZED !== 'false',
       };
     } else if (process.env.KAFKA_SSL_CA) {

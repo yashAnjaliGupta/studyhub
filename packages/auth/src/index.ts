@@ -15,7 +15,6 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log("credentials_____________", credentials);
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -118,12 +117,23 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        domain: process.env.COOKIE_DOMAIN || undefined,
+        // Never set a cross-subdomain cookie domain (e.g. .yashguptaiiit.in) on localhost
+        // Modern browsers will reject cookies if domain does not match the request host.
+        domain:
+          process.env.NEXTAUTH_URL?.includes("localhost") ||
+          process.env.NEXTAUTH_URL?.includes("127.0.0.1")
+            ? undefined
+            : process.env.COOKIE_DOMAIN || undefined,
         secure: process.env.NODE_ENV === "production" && Boolean(process.env.NEXTAUTH_URL?.startsWith("https://")),
       },
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || "mySecret",
+  secret: (() => {
+    if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET) {
+      throw new Error("FATAL: NEXTAUTH_SECRET is not configured in production environment.");
+    }
+    return process.env.NEXTAUTH_SECRET || "dev-only-insecure-secret";
+  })(),
 };
 
 export const authHandler = NextAuth(authOptions);

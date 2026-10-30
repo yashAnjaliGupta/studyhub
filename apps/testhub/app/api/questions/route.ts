@@ -171,6 +171,10 @@ export async function GET(req: Request) {
         imageUrl: q.imageUrl,
         diagramSvg: q.diagramSvg,
         pageNumber: q.pageNumber,
+        solutionText: q.solutionText || null,
+        solutionSvg: q.solutionSvg || null,
+        correctOptionIds: q.correctOptionIds || [],
+        numericalAnswer: q.numericalAnswer || null,
         options: (Array.isArray(q.options) ? (q.options as any[]) : []).map((opt) => ({
           id: opt.id,
           text: opt.text,

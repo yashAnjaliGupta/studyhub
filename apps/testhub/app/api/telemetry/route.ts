@@ -22,19 +22,19 @@ export async function POST(request: Request) {
       );
     }
 
-    // Send to Kafka:
-    // If it's an exam event (has attemptId, questionId, or ExamTelemetryEventType),
-    // sendTelemetryEvent automatically routes it to KAFKA_EXAM_TOPIC (default: 'exam-telemetry').
-    // Otherwise routes to KAFKA_TOPIC (default: 'web_telemetry').
-    await sendTelemetryEvent(body as Record<string, unknown>);
+    // Send to Kafka asynchronously without blocking the client HTTP connection
+    try {
+      sendTelemetryEvent(body as Record<string, unknown>).catch((err) => {
+        console.warn('[TestHub Telemetry API] Non-blocking Kafka send warning:', err?.message || err);
+      });
+    } catch (err: any) {
+      console.warn('[TestHub Telemetry API] Non-blocking dispatch warning:', err?.message || err);
+    }
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {
-    console.error('[TestHub Telemetry API] Error processing telemetry event:', error?.message || error);
-    return NextResponse.json(
-      { error: 'Internal telemetry error', message: error?.message },
-      { status: 500 }
-    );
+    console.warn('[TestHub Telemetry API] Error processing telemetry event:', error?.message || error);
+    return NextResponse.json({ success: true }, { status: 200 });
   }
 }
 

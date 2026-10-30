@@ -66,7 +66,7 @@ function splitTableCells(rowText: string): string[] {
 function preprocessMathText(text: string): string {
   if (!text) return '';
 
-  const mathRegex = /(\$\$[\s\S]*?\$\$|\$(?:\\\$|[^\$\n])+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g;
+  const mathRegex = /(\$\$[\s\S]*?\$\$|\$(?:\\\$|[^$\n])+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g;
 
   // 1. Modulo normalization: convert unwrapped |expr| or |expr|^2 outside math to $|expr|^2$
   let parts = text.split(mathRegex);
@@ -74,10 +74,10 @@ function preprocessMathText(text: string): string {
     let nonMath = parts[i];
     if (!nonMath) continue;
     nonMath = nonMath.replace(
-      /\|\s*([a-zA-Z0-9_\-\+\*\/\s\\\(\)\{\}\^\u03c0\u03b1\u03b2\u03bb\u03bc\u0394\u03a9]+?)\s*\|\s*(\^?\{?\d+\}?)?/g,
+      /\|\s*([a-zA-Z0-9_\-+*/\s\\(){}^\u03c0\u03b1\u03b2\u03bb\u03bc\u0394\u03a9]+?)\s*\|\s*(\^?\{?\d+\}?)?/g,
       (match, inner, sup) => {
         if (inner.includes('---') || inner.length > 60) return match;
-        const supStr = sup ? (sup.startsWith('^') ? sup : '^{' + sup.replace(/[\{\}]/g, '') + '}') : '';
+        const supStr = sup ? (sup.startsWith('^') ? sup : '^{' + sup.replace(/[{}]/g, '') + '}') : '';
         return '$|' + inner.trim() + '|' + supStr + '$';
       }
     );

@@ -6,10 +6,22 @@ import {
 } from '../../../../lib/solution-generator';
 import { prisma } from '@repo/db/client';
 
+import { getServerSession, authOptions } from '@repo/auth';
+
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    const adminEmail = process.env.ADMIN_EMAIL;
+    
+    // In production, require admin authentication
+    if (process.env.NODE_ENV === 'production') {
+      if (!session || (adminEmail && session.user?.email !== adminEmail)) {
+        return NextResponse.json({ error: 'Unauthorized: Admin privileges required to mutate question solutions.' }, { status: 403 });
+      }
+    }
+
     const body = await req.json().catch(() => ({}));
     const { questionId, questionIds, paperId, isBackground = false, force = false, limit = 20 } = body;
 

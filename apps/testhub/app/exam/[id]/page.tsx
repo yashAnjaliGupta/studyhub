@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { useExamTelemetry } from '@repo/telemetry/hooks';
 import { MathText } from '@repo/ui/math-text';
 import { DiagramCanvas } from '../../../components/diagram-canvas';
 import { QuestionInputRenderer } from '../../../components/question-inputs';
@@ -62,22 +61,6 @@ export default function ExamPage() {
     return `att_${id}_${Date.now()}`;
   });
 
-  const {
-    trackAttemptStarted,
-    trackQuestionViewed,
-    trackAnswerSelected,
-    trackAnswerChanged,
-    trackAnswerCleared,
-    trackQuestionNavigated,
-    trackMarkedForReview,
-    trackAttemptSubmitted,
-    trackFocusChanged,
-  } = useExamTelemetry({
-    paperId: id,
-    attemptId,
-    userId,
-  });
-
   // Paper & Questions State
   const [paper, setPaper] = useState<ProcessedPaper | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,15 +70,52 @@ export default function ExamPage() {
   const [review, setReview] = useState<Set<string>>(new Set());
   const [visited, setVisited] = useState<Set<string>>(new Set());
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
-  const hasTrackedStartRef = useRef(false);
 
   // Timer State: starts from paper duration or 180 minutes
   const [seconds, setSeconds] = useState(180 * 60);
 
+  // Local silent telemetry state (0 network requests during exam)
+  const telemetryRef = useRef<Record<string, {
+    dwellSeconds: number;
+    revisitCount: number;
+    firstResponseSeconds?: number;
+    switches: Array<{ from: string; to: string; at: number }>;
+    hoverDurations: Record<string, number>;
+  }>>({});
+  const activeQuestionStartRef = useRef<number>(Date.now());
+  const hoverStartRef = useRef<{ optLabel: string; start: number } | null>(null);
+  const subjectTimeSpentRef = useRef<Record<string, number>>({});
+
   // Restore existing session on mount if user was already taking this exam
   useEffect(() => {
+    const isPseudo = searchParams?.get('pseudo') === 'true';
+    if (isPseudo) {
+      fetch(`/api/exam/pseudo-attempt/${encodeURIComponent(id)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && data.answers && Object.keys(data.answers).length > 0) {
+            setAnswers(data.answers);
+            if (data.review) setReview(new Set(data.review));
+            if (data.visited) setVisited(new Set(data.visited));
+            if (data.telemetry) telemetryRef.current = data.telemetry;
+            if (data.subjectTimeSpent) subjectTimeSpentRef.current = data.subjectTimeSpent;
+            if (data.durationSeconds && data.timeSpentSeconds) {
+              setSeconds(Math.max(0, data.durationSeconds - data.timeSpentSeconds));
+            }
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+
     const existing = getExamSession(id);
     if (existing) {
+      if (existing.telemetry) {
+        telemetryRef.current = existing.telemetry;
+      }
+      if (existing.subjectTimeSpent) {
+        subjectTimeSpentRef.current = existing.subjectTimeSpent;
+      }
       if (existing.answers && Object.keys(existing.answers).length > 0) {
         setAnswers(existing.answers);
       }
@@ -110,7 +130,7 @@ export default function ExamPage() {
         setSeconds(remaining);
       }
     }
-  }, [id]);
+  }, [id, searchParams]);
 
   // Accessibility & Magnifier State
   const [zoomScale, setZoomScale] = useState(100);
@@ -257,28 +277,9 @@ export default function ExamPage() {
 
   const currentQuestion = questions[currentIndex] || questions[0];
 
-  // Track attempt started telemetry once paper is loaded and initialized
-  useEffect(() => {
-    if (paper && questions.length > 0 && !hasTrackedStartRef.current) {
-      hasTrackedStartRef.current = true;
-      trackAttemptStarted({
-        paperTitle: paper.title,
-        paperSubject: paper.subject,
-        examType: paper.examType,
-        totalQuestions: questions.length,
-        durationMinutes: paper.durationMin || 180,
-      });
-    }
-  }, [paper, questions.length, trackAttemptStarted]);
-
-  // Record question view telemetry & visited state
+  // Mark visited state when navigating questions
   useEffect(() => {
     if (currentQuestion?.id) {
-      trackQuestionViewed(currentQuestion.id, {
-        subject: currentQuestion.subject || paper?.subject,
-        topic: currentQuestion.topic || (currentQuestion as any).topicId,
-        sequenceNum: currentQuestion.sequenceNum ?? (currentIndex + 1),
-      });
       setVisited((prev) => {
         if (prev.has(currentQuestion.id)) return prev;
         const next = new Set(prev);
@@ -286,7 +287,31 @@ export default function ExamPage() {
         return next;
       });
     }
-  }, [currentIndex, currentQuestion?.id, currentQuestion?.subject, currentQuestion?.topic, currentQuestion?.sequenceNum, paper?.subject, trackQuestionViewed]);
+  }, [currentIndex, currentQuestion?.id]);
+
+  // Continuously persist exam session state to browser storage (answers, visited, review, telemetry)
+  useEffect(() => {
+    if (!id || !paper) return;
+    const totalSecs = (paper?.durationMin || 180) * 60;
+    const timeSpent = Math.max(0, totalSecs - seconds);
+    saveExamSession(id, {
+      attemptId,
+      userId,
+      paperId: id,
+      paperTitle: paper?.title || 'Practice Paper',
+      startedAt: Date.now() - timeSpent * 1000,
+      submittedAt: 0,
+      durationSeconds: totalSecs,
+      timeSpentSeconds: timeSpent,
+      answers,
+      review: Array.from(review),
+      visited: Array.from(visited),
+      autoSubmitted: false,
+      violationsCount,
+      telemetry: telemetryRef.current,
+      subjectTimeSpent: subjectTimeSpentRef.current,
+    });
+  }, [id, paper, answers, review, visited, violationsCount, seconds, attemptId, userId]);
 
   // Timer countdown
   useEffect(() => {
@@ -323,11 +348,6 @@ export default function ExamPage() {
 
       setViolationsCount((prev) => {
         const nextCount = prev + 1;
-        trackFocusChanged(true, {
-          reason,
-          violationCount: nextCount,
-          maxAllowed: 3,
-        });
         if (nextCount < 3) {
           // Warning 1 and 2: Show warning modal
           setShowWarningModal(true);
@@ -341,7 +361,7 @@ export default function ExamPage() {
         return nextCount;
       });
     },
-    [isTestStarted, autoSubmitted, trackFocusChanged]
+    [isTestStarted, autoSubmitted]
   );
 
   // Fullscreen change listener
@@ -511,41 +531,71 @@ export default function ExamPage() {
     };
   }, [questions, getQuestionStatus]);
 
+  // Silent Telemetry Helpers (0 network calls during exam)
+  const flushCurrentQuestionDwell = useCallback(() => {
+    if (!currentQuestion) return;
+    const qId = currentQuestion.id;
+    const now = Date.now();
+    const elapsedSec = Math.max(0, Math.round((now - activeQuestionStartRef.current) / 1000));
+    activeQuestionStartRef.current = now;
+
+    if (!telemetryRef.current[qId]) {
+      telemetryRef.current[qId] = { dwellSeconds: 0, revisitCount: 1, switches: [], hoverDurations: {} };
+    }
+    telemetryRef.current[qId].dwellSeconds += elapsedSec;
+
+    const subj = currentQuestion.subject || currentSubjectTab?.name || 'General';
+    subjectTimeSpentRef.current[subj] = (subjectTimeSpentRef.current[subj] || 0) + elapsedSec;
+  }, [currentQuestion, currentSubjectTab?.name]);
+
+  const handleOptionHover = useCallback((optLabel: string, isEntering: boolean) => {
+    if (!currentQuestion) return;
+    const qId = currentQuestion.id;
+    if (!telemetryRef.current[qId]) {
+      telemetryRef.current[qId] = { dwellSeconds: 0, revisitCount: 1, switches: [], hoverDurations: {} };
+    }
+    if (isEntering) {
+      hoverStartRef.current = { optLabel, start: Date.now() };
+    } else if (hoverStartRef.current && hoverStartRef.current.optLabel === optLabel) {
+      const elapsedSec = Math.max(0, (Date.now() - hoverStartRef.current.start) / 1000);
+      const prevHover = telemetryRef.current[qId].hoverDurations[optLabel] || 0;
+      telemetryRef.current[qId].hoverDurations[optLabel] = Math.round((prevHover + elapsedSec) * 10) / 10;
+      hoverStartRef.current = null;
+    }
+  }, [currentQuestion]);
+
   // Actions
   const handleAnswerChange = (val: any) => {
     if (!currentQuestion) return;
-    const previous = answers[currentQuestion.id];
-    const optionIdStr = typeof val === 'string' ? val : JSON.stringify(val);
-    const meta = {
-      subject: currentQuestion.subject || paper?.subject,
-      topic: currentQuestion.topic || (currentQuestion as any).topicId,
-      type: currentQuestion.type,
-      sequenceNum: currentQuestion.sequenceNum ?? (currentIndex + 1),
-    };
-
-    if (previous === undefined) {
-      trackAnswerSelected(currentQuestion.id, optionIdStr, meta);
-    } else if (JSON.stringify(previous) !== JSON.stringify(val)) {
-      trackAnswerChanged(
-        currentQuestion.id,
-        typeof previous === 'string' ? previous : JSON.stringify(previous),
-        optionIdStr,
-        meta
-      );
+    const qId = currentQuestion.id;
+    if (!telemetryRef.current[qId]) {
+      telemetryRef.current[qId] = { dwellSeconds: 0, revisitCount: 1, switches: [], hoverDurations: {} };
     }
-    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: val }));
+
+    const previous = answers[qId];
+    const totalElapsedSec = Math.max(0, (paper?.durationMin || 180) * 60 - seconds);
+
+    if (previous !== undefined && JSON.stringify(previous) !== JSON.stringify(val)) {
+      telemetryRef.current[qId].switches.push({
+        from: typeof previous === 'number' ? String.fromCharCode(65 + previous) : String(previous),
+        to: typeof val === 'number' ? String.fromCharCode(65 + val) : String(val),
+        at: totalElapsedSec,
+      });
+    }
+
+    if (telemetryRef.current[qId].firstResponseSeconds === undefined) {
+      telemetryRef.current[qId].firstResponseSeconds = totalElapsedSec;
+    }
+
+    setAnswers((prev) => ({ ...prev, [qId]: val }));
   };
 
   const clearCurrentResponse = () => {
     if (!currentQuestion) return;
-    trackAnswerCleared(currentQuestion.id, {
-      subject: currentQuestion.subject || paper?.subject,
-      topic: currentQuestion.topic || (currentQuestion as any).topicId,
-      sequenceNum: currentQuestion.sequenceNum ?? (currentIndex + 1),
-    });
+    const qId = currentQuestion.id;
     setAnswers((prev) => {
       const next = { ...prev };
-      delete next[currentQuestion.id];
+      delete next[qId];
       return next;
     });
   };
@@ -565,7 +615,6 @@ export default function ExamPage() {
 
   const handleSaveAndNext = () => {
     if (!currentQuestion) return;
-    // If next question exists, navigate to it
     if (currentIndex < questions.length - 1) {
       navigateToQuestion(currentIndex + 1);
     } else {
@@ -580,11 +629,6 @@ export default function ExamPage() {
       next.add(currentQuestion.id);
       return next;
     });
-    trackMarkedForReview(currentQuestion.id, {
-      subject: currentQuestion.subject || paper?.subject,
-      topic: currentQuestion.topic || (currentQuestion as any).topicId,
-      sequenceNum: currentQuestion.sequenceNum ?? (currentIndex + 1),
-    });
 
     if (currentIndex < questions.length - 1) {
       navigateToQuestion(currentIndex + 1);
@@ -595,16 +639,19 @@ export default function ExamPage() {
 
   const navigateToQuestion = (targetIndex: number) => {
     if (targetIndex < 0 || targetIndex >= questions.length || targetIndex === currentIndex) return;
-    trackQuestionNavigated(currentQuestion.id, questions[targetIndex].id, {
-      subject: currentQuestion.subject || paper?.subject,
-      fromIndex: currentIndex,
-      toIndex: targetIndex,
-    });
+    flushCurrentQuestionDwell();
+
+    const targetQId = questions[targetIndex].id;
+    if (!telemetryRef.current[targetQId]) {
+      telemetryRef.current[targetQId] = { dwellSeconds: 0, revisitCount: 1, switches: [], hoverDurations: {} };
+    } else {
+      telemetryRef.current[targetQId].revisitCount = (telemetryRef.current[targetQId].revisitCount || 1) + 1;
+    }
+
     setCurrentIndex(targetIndex);
-    // Mark target as visited
     setVisited((prev) => {
       const next = new Set(prev);
-      next.add(questions[targetIndex].id);
+      next.add(targetQId);
       return next;
     });
   };
@@ -618,21 +665,37 @@ export default function ExamPage() {
     }
   };
 
-  const handleFinalSubmit = (reason?: string) => {
+  const loadPseudoAttempt = async () => {
+    try {
+      const res = await fetch(`/api/exam/pseudo-attempt/${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (data && data.answers && Object.keys(data.answers).length > 0) {
+        setAnswers(data.answers);
+        if (data.review) setReview(new Set(data.review));
+        if (data.visited) setVisited(new Set(data.visited));
+        if (data.telemetry) telemetryRef.current = data.telemetry;
+        if (data.subjectTimeSpent) subjectTimeSpentRef.current = data.subjectTimeSpent;
+        alert('⚡ 48 Pseudo Answers & Telemetry loaded! Click "Submit" to proceed through the official submission and analysis flow.');
+      } else {
+        alert('Could not retrieve pseudo attempt from server.');
+      }
+    } catch (e: any) {
+      alert('Failed to load pseudo attempt: ' + (e?.message || e));
+    }
+  };
+
+  const handleFinalSubmit = async (reason?: string) => {
+    isSubmittingRef.current = true;
+    if (typeof document !== 'undefined' && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+
+    flushCurrentQuestionDwell();
     const totalSecs = (paper?.durationMin || 180) * 60;
     const timeSpent = Math.max(0, totalSecs - seconds);
-    const answeredCount = Object.keys(answers).length;
+    const isAutoSub = Boolean(reason && reason !== 'user_submitted');
 
-    trackAttemptSubmitted(attemptId, {
-      paperId: id,
-      paperTitle: paper?.title,
-      totalQuestions: questions.length,
-      answeredCount,
-      timeSpentSeconds: timeSpent,
-      reason,
-    });
-
-    saveExamSession(id, {
+    const sessionPayload = {
       attemptId,
       userId,
       paperId: id,
@@ -644,12 +707,29 @@ export default function ExamPage() {
       answers,
       review: Array.from(review),
       visited: Array.from(visited),
-      autoSubmitted: Boolean(reason && reason !== 'user_submitted'),
+      autoSubmitted: isAutoSub,
       autoSubmitReason: reason,
       violationsCount,
-    });
-    const param = reason ? `?autoSubmitted=true&reason=${reason}` : '';
-    router.push(`/exam/${id}/submit-confirmation${param}`);
+      telemetry: telemetryRef.current,
+      subjectTimeSpent: subjectTimeSpentRef.current,
+    };
+
+    // Persist full telemetry locally
+    saveExamSession(id, sessionPayload);
+
+    // Send single consolidated submission payload to /api/exam/submit
+    try {
+      fetch('/api/exam/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sessionPayload),
+      }).catch((e) => console.warn('[ExamSubmit] Non-blocking submit API call error:', e));
+    } catch {}
+
+    setShowSubmitModal(false);
+
+    const targetUrl = `/exam/${encodeURIComponent(id)}/results${isAutoSub ? `?autoSubmitted=true&reason=${encodeURIComponent(reason || '')}` : ''}`;
+    router.push(targetUrl);
   };
 
   // Candidate display name & roll number mapped from session
@@ -777,6 +857,15 @@ export default function ExamPage() {
               <ZoomIn className="size-3.5" />
             </span>
             <span>Screen Magnifier ({zoomScale}%)</span>
+          </button>
+
+          {/* Load Pseudo Attempt for Flow Testing */}
+          <button
+            onClick={loadPseudoAttempt}
+            className="flex items-center gap-1.5 rounded bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold px-3 py-1 text-xs shadow-sm transition"
+            title="Load 48 Pseudo Answers & Telemetry to test Submit Flow"
+          >
+            <span>⚡ Load Pseudo Attempt</span>
           </button>
         </div>
       </header>
@@ -1020,6 +1109,7 @@ export default function ExamPage() {
                 options={currentQuestion.options}
                 answer={answers[currentQuestion.id]}
                 onChange={handleAnswerChange}
+                onOptionHover={handleOptionHover}
               />
             </div>
           </div>

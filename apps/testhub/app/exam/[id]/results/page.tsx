@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { PageContainer, PageHeading, MetricCard, Panel } from '../../../../components/ui';
-import { getExamSession, evaluateAttempt, type ExamEvaluationResult } from '../../../../lib/exam-session';
+import { getExamSession, saveExamSession, evaluateAttempt, type ExamEvaluationResult } from '../../../../lib/exam-session';
 import { JEE_MAIN_DEFAULT_PAPER } from '../../../../lib/jee-mock-paper';
 import { getDynamicPaper } from '../../../../lib/dynamic-paper-provider';
 import type { ProcessedPaper } from '../../../../lib/paper-service';
@@ -51,7 +51,40 @@ export default function ExamResultsPage() {
     };
   }, [id]);
 
-  const sessionData = useMemo(() => getExamSession(id), [id]);
+  const [sessionData, setSessionData] = useState(() => getExamSession(id));
+
+  // Automatically sync with server attempt if server has richer/more complete attempt data
+  useEffect(() => {
+    fetch(`/api/exam/attempt/${encodeURIComponent(id)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.status === 'SUCCESS' && data.answers && Object.keys(data.answers).length > 0) {
+          const existing = getExamSession(id);
+          const serverAnswersCount = Object.keys(data.answers).length;
+          const localAnswersCount = Object.keys(existing?.answers || {}).length;
+
+          if (!existing || serverAnswersCount > localAnswersCount || localAnswersCount <= 4) {
+            const restored = {
+              attemptId: data.attemptId,
+              paperId: id,
+              paperTitle: paper?.title || data.paperTitle || 'Practice Paper',
+              startedAt: data.startedAt || Date.now() - 3600000,
+              submittedAt: data.submittedAt || Date.now(),
+              durationSeconds: data.durationSeconds || (paper?.durationMin || 180) * 60,
+              timeSpentSeconds: data.timeSpentSeconds || 3600,
+              answers: data.answers,
+              review: data.review || [],
+              visited: data.visited || [],
+              telemetry: data.telemetry || {},
+              subjectTimeSpent: data.subjectTimeSpent || {},
+            };
+            saveExamSession(id, restored);
+            setSessionData(restored);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [id, paper]);
 
   const evaluation: ExamEvaluationResult = useMemo(() => {
     const activePaper = paper || JEE_MAIN_DEFAULT_PAPER;

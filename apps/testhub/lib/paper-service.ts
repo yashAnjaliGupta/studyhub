@@ -495,13 +495,13 @@ async function enrichPaperWithDiagramFields(paper: any, decodedId?: string, file
     let rawQuestions: any[] = [];
     try {
       rawQuestions = await prisma.$queryRawUnsafe(
-        'SELECT id, "diagramSvg", "imageUrl", "pageNumber", type, subject FROM "Question" WHERE "paperId" = $1',
+        'SELECT id, "diagramSvg", "imageUrl", "pageNumber", type, subject, "solutionText", "solutionSvg" FROM "Question" WHERE "paperId" = $1',
         paperId
       );
     } catch {
       // Fallback query if subject column is not yet present in PostgreSQL schema
       rawQuestions = await prisma.$queryRawUnsafe(
-        'SELECT id, "diagramSvg", "imageUrl", "pageNumber", type FROM "Question" WHERE "paperId" = $1',
+        'SELECT id, "diagramSvg", "imageUrl", "pageNumber", type, "solutionText", "solutionSvg" FROM "Question" WHERE "paperId" = $1',
         paperId
       );
     }
@@ -758,13 +758,17 @@ function formatPaperResponse(paper: any, sourcePdfUrl?: string | null): Processe
         negativeMarks,
         topic: q.topic?.name || 'General',
         subject,
-        options: (q.options || []).map((opt: any) => ({
-          id: opt.id,
-          text: opt.text,
-          imageUrl: opt.imageUrl || null,
-          isCorrect: opt.isCorrect,
-          sequenceNum: opt.sequenceNum,
-        })),
+        options: (q.options || []).map((opt: any) => {
+          const correctIds = Array.isArray(q.correctOptionIds) ? q.correctOptionIds : [];
+          const isOptCorrect = Boolean(opt.isCorrect || correctIds.includes(opt.id) || (q.correctOptionId && q.correctOptionId === opt.id));
+          return {
+            id: opt.id,
+            text: opt.text,
+            imageUrl: opt.imageUrl || null,
+            isCorrect: isOptCorrect,
+            sequenceNum: opt.sequenceNum,
+          };
+        }),
       };
     }),
   };
@@ -1036,7 +1040,13 @@ export async function extractAndPopulatePaper(
 
   if (existingPaper && existingPaper.questions.length > 0 && !force) {
     const existingResult = await getPaperFromDatabase(paperIdToSave);
-    if (existingResult) return existingResult;
+    if (existingResult) {
+      // Non-blocking trigger if any questions in this existing paper lack solutions
+      try {
+        enrichPaperSolutionsInBackground(paperIdToSave);
+      } catch {}
+      return existingResult;
+    }
   } else if (existingPaper) {
     await prisma.question.deleteMany({
       where: { paperId: paperIdToSave },

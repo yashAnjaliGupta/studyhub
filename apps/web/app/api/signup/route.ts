@@ -1,5 +1,5 @@
 import { prisma } from "@repo/db/client";
-import { hashPassword, verifyOtp, deleteOtp } from "@repo/auth";
+import { hashPassword, verifyOtpAsync, deleteOtp } from "@repo/auth";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -22,8 +22,8 @@ export async function POST(request: Request) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Verify OTP using shared store
-    const verification = verifyOtp(normalizedEmail, otp);
+    // Verify OTP using shared store (with Redis persistence)
+    const verification = await verifyOtpAsync(normalizedEmail, otp);
     if (!verification.valid) {
       return NextResponse.json(
         { error: verification.reason || "Invalid or expired verification code." },

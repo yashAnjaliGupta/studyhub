@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { MathText } from '@repo/ui/math-text';
 import { FloatingChatbot } from '@repo/ui/floating-chatbot';
 import { PageContainer, PageHeading } from '../../../../components/ui';
@@ -95,6 +95,8 @@ function getSubjectTheme(subject: string) {
 export default function TopicQuestionsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetQuestionId = searchParams?.get('q') || searchParams?.get('highlight') || '';
 
   const rawSubject = (params?.subject as string) || '';
   const rawTopic = (params?.topic as string) || '';
@@ -112,6 +114,20 @@ export default function TopicQuestionsPage() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [revealedAnswers, setRevealedAnswers] = useState<Set<string>>(new Set());
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
+
+  // Auto-scroll and highlight target question if linked from exam analysis
+  useEffect(() => {
+    if (!loading && targetQuestionId && questions.length > 0) {
+      setRevealedAnswers((prev) => new Set(prev).add(targetQuestionId));
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`q-${targetQuestionId}`) || document.getElementById(targetQuestionId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, targetQuestionId, questions]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -382,13 +398,32 @@ export default function TopicQuestionsPage() {
           {filteredQuestions.map((q, idx) => {
             const isRevealed = revealedAnswers.has(q.id);
             const isBookmarked = bookmarked.has(q.id);
+            const isTarget = q.id === targetQuestionId;
             const correctOption = q.options?.find((opt) => opt.isCorrect);
 
             return (
               <div
                 key={q.id}
-                className="overflow-hidden rounded-2xl border border-[#dce4ef] bg-white shadow-xs transition hover:border-[#0875f9]/40 hover:shadow-md"
+                id={`q-${q.id}`}
+                className={`overflow-hidden rounded-2xl border transition ${
+                  isTarget
+                    ? 'border-blue-500 ring-4 ring-blue-500/20 bg-blue-50/10 shadow-lg'
+                    : 'border-[#dce4ef] bg-white shadow-xs hover:border-[#0875f9]/40 hover:shadow-md'
+                }`}
               >
+                {/* Target Focus Banner when linked from Exam Analysis */}
+                {isTarget && (
+                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2 text-xs font-bold text-white flex items-center justify-between shadow-xs">
+                    <span className="flex items-center gap-1.5">
+                      <span>🎯</span>
+                      <span>Target Question from your Practice Exam Attempt</span>
+                    </span>
+                    <span className="rounded bg-white/20 px-2 py-0.5 text-[11px] font-semibold text-white">
+                      Linked from Analysis
+                    </span>
+                  </div>
+                )}
+
                 {/* Question Header Bar */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#edf2f7] bg-[#fbfcfd] px-5 py-3 text-xs">
                   <div className="flex items-center gap-2.5">
@@ -562,9 +597,20 @@ export default function TopicQuestionsPage() {
                           <span>Evaluated as per examination marking scheme.</span>
                         )}
                       </div>
-                      <div className="border-t border-emerald-200/60 pt-2 pl-6 text-[11px] text-emerald-800">
-                        Step-by-step verification confirmed by official scoring key.
-                      </div>
+                      {(q as any).solutionText ? (
+                        <div className="border-t border-emerald-200/60 pt-2.5 pl-6 text-xs text-slate-800 space-y-1">
+                          <span className="font-bold text-emerald-900 block text-[11px] uppercase tracking-wider">
+                            Step-by-Step Solution:
+                          </span>
+                          <div className="bg-white/80 p-3 rounded-lg border border-emerald-100 font-normal leading-relaxed">
+                            <MathText text={(q as any).solutionText} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border-t border-emerald-200/60 pt-2 pl-6 text-[11px] text-emerald-800">
+                          Step-by-step verification confirmed by official scoring key.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

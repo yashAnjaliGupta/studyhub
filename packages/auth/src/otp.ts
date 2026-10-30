@@ -17,22 +17,55 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 /**
- * Stores an OTP with a 10-minute expiration window.
+ * Distributed Redis Helper with In-Memory fallback for serverless / multi-instance setups.
  */
-export function setOtp(email: string, otp: string, ttlMinutes = 10): void {
+async function redisCommand(endpoint: string): Promise<any> {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  try {
+    const res = await fetch(`${url}/${endpoint}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn("[OTP Redis] Remote command failed:", err);
+  }
+  return null;
+}
+
+/**
+ * Stores an OTP with a 10-minute expiration window in memory and Redis.
+ */
+export async function setOtp(email: string, otp: string, ttlMinutes = 10): Promise<void> {
   const normalized = email.trim().toLowerCase();
+  const ttlSeconds = ttlMinutes * 60;
   otpStore.set(normalized, {
     otp: otp.trim(),
     email: normalized,
-    expiresAt: Date.now() + ttlMinutes * 60 * 1000,
+    expiresAt: Date.now() + ttlSeconds * 1000,
   });
+
+  // Persist to Upstash Redis if configured
+  await redisCommand(`set/otp:${encodeURIComponent(normalized)}/${encodeURIComponent(otp.trim())}?ex=${ttlSeconds}`);
 }
 
 /**
  * Retrieves the stored OTP if not expired.
  */
-export function getOtp(email: string): string | null {
+export async function getOtp(email: string): Promise<string | null> {
   const normalized = email.trim().toLowerCase();
+
+  // 1. Check Redis first for distributed correctness
+  const remote = await redisCommand(`get/otp:${encodeURIComponent(normalized)}`);
+  if (remote?.result) {
+    return remote.result;
+  }
+
+  // 2. Check in-memory store fallback
   const record = otpStore.get(normalized);
   if (!record) return null;
   if (Date.now() > record.expiresAt) {
@@ -43,7 +76,38 @@ export function getOtp(email: string): string | null {
 }
 
 /**
- * Verifies an entered OTP against the store.
+ * Verifies an entered OTP against distributed Redis and local fallback.
+ */
+export async function verifyOtpAsync(
+  email: string,
+  enteredOtp: string
+): Promise<{ valid: boolean; reason?: string }> {
+  if (!email || !enteredOtp) {
+    return { valid: false, reason: "Email and verification code are required." };
+  }
+
+  const normalized = email.trim().toLowerCase();
+  const storedOtp = await getOtp(normalized);
+
+  if (!storedOtp) {
+    return {
+      valid: false,
+      reason: "No verification code found or it has expired. Please request a new code.",
+    };
+  }
+
+  if (storedOtp !== enteredOtp.trim()) {
+    return {
+      valid: false,
+      reason: "Invalid verification code. Please check your email and try again.",
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Synchronous backwards-compatible verify helper.
  */
 export function verifyOtp(
   email: string,
@@ -84,9 +148,10 @@ export function verifyOtp(
 /**
  * Deletes the OTP for an email.
  */
-export function deleteOtp(email: string): void {
+export async function deleteOtp(email: string): Promise<void> {
   const normalized = email.trim().toLowerCase();
   otpStore.delete(normalized);
+  await redisCommand(`del/otp:${encodeURIComponent(normalized)}`);
 }
 
 /**
@@ -258,8 +323,12 @@ export async function sendOtpEmail({
   const apiKey = process.env.RESEND_API_KEY;
   const otp = generateOtp();
 
-  setOtp(normalizedEmail, otp, expiresInMinutes);
-  console.log(`[OTP GENERATED - ${appName}] ${normalizedEmail} -> ${otp}`);
+  await setOtp(normalizedEmail, otp, expiresInMinutes);
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[OTP GENERATED - ${appName}] ${normalizedEmail} -> ${otp}`);
+  } else {
+    console.log(`[OTP GENERATED - ${appName}] ${normalizedEmail}`);
+  }
 
   const fromEmail =
     process.env.RESEND_FROM_EMAIL ||

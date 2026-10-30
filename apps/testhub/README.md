@@ -4,47 +4,88 @@
 [![React](https://img.shields.io/badge/React-19.2.0-blue?logo=react)](https://react.dev/)
 [![CBT Exam Ready](https://img.shields.io/badge/Exam-CBT%20Simulation-0875f9)](https://github.com/)
 [![AWS Bedrock](https://img.shields.io/badge/AWS-Bedrock%20AI-FF9900?logo=amazon-aws)](https://aws.amazon.com/bedrock/)
+[![Upstash Redis](https://img.shields.io/badge/Upstash-Redis%20State-00E599?logo=redis)](https://upstash.com/)
 
-**TestHub** is the computer-based testing (CBT) examination and mock test application of the StudyHub monorepo. It accurately simulates official examination conditions for national competitive exams like **JEE Main**, **JEE Advanced**, and **NEET**, featuring dynamic past papers, interactive question solving, high-fidelity diagram rendering, an AI test analysis assistant, and comprehensive performance analytics.
+**TestHub** is the computer-based testing (CBT) examination simulator and performance diagnostic engine of the StudyHub ecosystem. Engineered to replicate the exact conditions of high-stakes national competitive entrance tests (**JEE Main**, **JEE Advanced**, and **NEET**), TestHub combines authentic examination palettes, timed section workflows, numerical range evaluation, interactive performance visualizations, and personalized AI mentorship powered by **AWS Bedrock**.
 
 ---
 
-## ⚡ Features
+## 📸 TestHub CBT Visual Tour
 
-### 1. Realistic CBT Examination Simulation
-- **Timed Exam Sessions**: Countdown timer with automatic warning alerts, section transitions, and auto-submission on timeout.
-- **NTA / CBT Question Palette**: Real-time status tracking for every question:
-  - ⚪ *Not Visited*
-  - 🔴 *Not Answered*
-  - 🟢 *Answered*
-  - 🟣 *Marked for Review*
-  - 🟣🟢 *Answered & Marked for Review*
-- **Question Types Supported**:
-  - Single-choice Multiple Choice (`mcq_single`)
-  - Multiple-choice Multiple Correct (`mcq_multiple`)
-  - Numerical value questions with floating-point tolerance ranges (`numerical`)
-  - Subjective & structured responses
+### 1. Paper Archive & Discovery
+Explore hundreds of authentic national exam papers with instant search, year selection (2002–2025), and subject filters (*Physics*, *Chemistry*, *Mathematics*).
+![Paper Library](../../screenshots/flow-2438/01_papers_library.png)
 
-### 2. Dynamic JEE Past Papers & Mock Exams
-- **Curated Exam Archive**: Access past papers spanning 2002 to 2025 across all exam shifts and sessions.
-- **Topic-Wise Practice**: Filter questions by academic domain: *Physics*, *Chemistry*, *Mathematics*, and *Biology*.
-- **Shuffle & Custom Configs**: Randomize questions and options to prevent pattern memorization during test prep.
+---
 
-### 3. Diagram Canvas & Vector Schematics
-- **High-Fidelity Diagrams**: Embedded SVG vector diagrams (`diagramSvg`) and option figures extracted by `services/pdf-parser`.
-- **Diagram Canvas Tool**: Interactive drawing canvas (`components/diagram-canvas.tsx`) allowing students to annotate, sketch, and solve problems directly on screen.
+### 2. Candidate Onboarding & Instructions Modal
+Authentic bilingual examination instructions matching official guidelines (marking rules, section breakdown, and navigation keyboard shortcuts).
+![Instructions Modal](../../screenshots/flow-2438/03_exam_instructions.png)
 
-### 4. AI-Powered Analysis & Solution Explanations
-- **Analysis Chatbot**: Embedded assistant (`components/analysis-chatbot.tsx`) explaining step-by-step solutions for any attempted problem.
-- **Intelligent Feedback**: Explains why chosen incorrect options were wrong, identifies core concepts to review, and generates tailored practice questions.
+---
 
-### 5. Automated Evaluation & Metrics
-- **Instant Result Computation**: Computes scores using JEE scoring schemes (+4 for correct, -1 for incorrect, 0 for unattempted).
-- **Topic-Level Accuracy**: Updates `StudentTopicMetrics` in PostgreSQL to track weak vs. strong topics over time.
+### 3. Fullscreen CBT Test Interface
+Authentic testing window with real-time countdown timer, KaTeX-formatted formulas, option selection, and floating diagram scratchpad.
+![Live CBT Screen](../../screenshots/flow-2438/05_exam_cbt_interface_q1.png)
 
-### 6. Candidate Authentication & Email OTP Verification
-- **Resend OTP Integration**: Secure 2-step registration verifying candidate emails via 6-digit OTP before saving to PostgreSQL.
-- **Single Sign-On & OAuth**: Supports Google OAuth and salted password credentials with session persistence.
+---
+
+### 4. Interactive 5-State Question Palette
+Real-time state tracking per question matching official NTA standards:
+- ⚪ **Not Visited**: Candidate has not opened this question yet.
+- 🔴 **Not Answered**: Visited but no option selected.
+- 🟢 **Answered**: Option selected or numerical value provided.
+- 🟣 **Marked for Review**: Flagged for later reconsideration without an answer.
+- 🟣🟢 **Answered & Marked for Review**: Answered but flagged for evaluation.
+
+![Question Palette](../../screenshots/flow-2438/07_exam_palette_status.png)
+
+---
+
+### 5. Automated Scorecard & Results Summary
+Instant scoring calculation applying official negative marking schemes (+4 for correct, -1 for incorrect, 0 for unattempted) with accuracy metrics.
+![Scorecard](../../screenshots/flow-2438/09_exam_results_scorecard.png)
+
+---
+
+### 6. 6-Section Performance Diagnostic Engine
+Granular behavioral telemetry analyzing:
+- **Speed vs. Accuracy**: Identifies rushing vs. over-deliberation.
+- **Time Traps**: Spots questions that consumed > 3 minutes with incorrect answers.
+- **Guesswork Detection**: Highlights rapid answer changes and late-stage guessing.
+- **Topic Mastery**: Aggregates accuracy across individual subject subtopics.
+
+![Diagnostic Analytics](../../screenshots/flow-2438/10_detailed_analysis.png)
+
+---
+
+### 7. AI Exam Strategist & Mentor (AWS Bedrock)
+Personalized post-exam mentorship using Claude 3.5 Sonnet / Haiku, synthesizing mistakes into high-priority revision action items and concept breakdowns.
+![AI Guidance](../../screenshots/flow-2438/11_ai_guidance_insights.png)
+
+---
+
+## ⚡ Core Features Breakdown
+
+### 1. Comprehensive Question Formats
+- **Single-choice Multiple Choice (`mcq_single`)**: Standard single-option questions.
+- **Multiple-choice Multiple Correct (`mcq_multiple`)**: JEE Advanced partial/full marking support.
+- **Numerical Value Input (`numerical`)**: Floating-point inputs verified against tolerance ranges (e.g. `42.50 ± 0.05`).
+- **Diagram Questions**: Embedded vector SVG schematics and raster plots extracted by `services/pdf-parser`.
+
+### 2. In-Browser Diagram Canvas
+- Interactive drawing canvas (`components/diagram-canvas.tsx`) allowing candidates to draw free-body diagrams, circuit loops, or rough scratchpad calculations directly on screen.
+
+### 3. Distributed State & Hot Caching
+- **Upstash Redis REST API**: Sub-2ms attempt and analysis caching (`exam:{id}:analysis`, `student:{id}:latest_exam_analysis`).
+- **PostgreSQL Persistence**: Durable long-term storage in `ExamAttempt`, `ExamAttemptAnswer`, and `AIGuidanceReport` tables.
+
+### 4. Real-time Telemetry with Apache Kafka
+- Non-blocking candidate action dispatching to Kafka topics (`exam-telemetry`), recording:
+  - Option selection timestamps
+  - Palette section jumps
+  - Window blur / tab switch anti-cheating alerts
+  - Review status toggles
 
 ---
 
@@ -54,34 +95,38 @@
 apps/testhub/
 ├── app/
 │   ├── api/
-│   │   ├── auth/             # NextAuth authentication routes
-│   │   ├── chat/             # AI exam analysis chat endpoint
-│   │   ├── exam/             # Exam session lifecycle (create, answer, submit, evaluate)
-│   │   ├── papers/           # Paper discovery & metadata queries
-│   │   └── questions/        # Question bank queries by subject & topic
-│   ├── exam/                 # Live CBT test interface
-│   │   └── [id]/page.tsx     # Fullscreen CBT examination UI
-│   ├── papers/               # Past year paper browser
-│   │   └── [id]/page.tsx     # Paper details, syllabus, & start prompt
-│   ├── questions/            # Subject-wise topic question banks
-│   ├── signin/ & signup/     # TestHub CBT authentication pages
-│   ├── globals.css           # TestHub styling & star progress animations
-│   ├── layout.tsx            # Root layout with AuthProvider & styles
-│   └── page.tsx              # TestHub home dashboard
+│   │   ├── auth/                      # NextAuth authentication & OTP routes
+│   │   ├── chat/                      # Exam solution Q&A chatbot
+│   │   ├── exam/
+│   │   │   ├── ai-report/             # AWS Bedrock personalized AI guidance generator
+│   │   │   ├── attempt/[id]/          # Exam attempt lifecycle queries
+│   │   │   ├── diagnostic-report/     # 6-section behavioral diagnostic engine
+│   │   │   └── submit/                # Scoring, Redis hot-caching & DB persistence
+│   │   ├── papers/                    # Paper discovery & metadata queries
+│   │   ├── questions/                 # Question bank queries & solution enricher
+│   │   └── telemetry/                 # Kafka non-blocking telemetry endpoint
+│   ├── exam/
+│   │   └── [id]/
+│   │       ├── ai-guidance/           # AI mentor strategic feedback page
+│   │       ├── detailed-analysis/     # 6-section diagnostic charts & analysis
+│   │       ├── results/               # Immediate scorecard & metrics
+│   │       └── page.tsx               # Fullscreen live CBT examination window
+│   ├── papers/                        # Past paper catalog
+│   ├── questions/                     # Subject-wise topic question bank
+│   ├── signin/ & signup/              # Candidate authentication & OTP verification
+│   └── page.tsx                       # Candidate home dashboard
 ├── components/
-│   ├── analysis-chatbot.tsx  # AI solution explainer dialog
-│   ├── auth-provider.tsx     # NextAuth SessionProvider wrapper
-│   ├── diagram-canvas.tsx    # Interactive diagram scratchpad
-│   ├── paper-processing.tsx  # Ingestion & parsing progress indicator
-│   ├── question-inputs.tsx   # MCQ and Numerical input components
-│   ├── testhub-loader.tsx    # Branded progress indicator
-│   └── ui.tsx                # CBT UI primitives
+│   ├── diagram-canvas.tsx             # Interactive scratchpad canvas
+│   ├── interactive-performance-chart  # Interactive performance visualizer
+│   ├── question-inputs.tsx            # MCQ & numerical input handlers
+│   ├── testhub-loader.tsx             # Branded loading spinner
+│   └── ui.tsx                         # Core UI components
 ├── lib/
-│   ├── auth.ts               # Re-exported NextAuth helpers from @repo/auth
-│   ├── exam-session.ts       # Attempt state, timing, and score calculations
-│   ├── jee-mock-paper.ts     # Sample offline JEE mock paper provider
-│   ├── paper-service.ts      # Database query service for papers & questions
-│   └── solution-generator.ts # Solution synthesis routines
+│   ├── diagnostic-engine.ts           # Telemetry behavioral classification
+│   ├── exam-session.ts                # Session state, score calculation & Redis sync
+│   ├── paper-service.ts               # Database paper queries
+│   ├── redis.ts                       # Upstash Redis client with in-memory fallback
+│   └── solution-generator.ts          # AI step-by-step mathematical proof generator
 └── package.json
 ```
 
@@ -89,52 +134,42 @@ apps/testhub/
 
 ## 🛠️ Environment Variables
 
-Create `.env` inside `apps/testhub/`:
+Create `.env` inside `apps/testhub/` or reference the root `.env`:
 
 ```env
-# Database Connection (Neon PostgreSQL with pgvector)
-DATABASE_URL="postgresql://user:password@localhost:5432/studybyd?schema=public"
+# Database Connection (PostgreSQL + pgvector)
+DATABASE_URL="postgresql://postgres:password@localhost:5432/studyhub?schema=public"
 
 # AWS Configuration (S3 & Bedrock)
 AWS_REGION="us-east-1"
 AWS_BUCKET_NAME="your-s3-bucket-name"
 AWS_ACCESS_KEY_ID="your-aws-access-key-id"
 AWS_SECRET_ACCESS_KEY="your-aws-secret-access-key"
-NEXT_PUBLIC_CDN_URL="https://your-cdn-domain.com/"
 
-# NextAuth Configuration (Default port: 3001)
+# NextAuth
 NEXTAUTH_URL="http://localhost:3001"
-NEXTAUTH_SECRET="your-nextauth-secret-key"
+NEXTAUTH_SECRET="your-generated-nextauth-secret-key"
 
-# Google OAuth
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-
-# TypeSafe AI (Optional structured exam extraction)
-TYPESAFE_API_KEY="your-typesafe-api-key"
-
-# Resend Email Service (Candidate OTP verification)
-RESEND_API_KEY="re_your_resend_api_key"
-RESEND_FROM_EMAIL="TestHub <support@yashguptaiiit.in>"
+# Upstash Redis (Session & Diagnostic Hot Cache)
+UPSTASH_REDIS_REST_URL="https://your-upstash-instance.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your-upstash-token"
 
 # Apache Kafka Telemetry
-KAFKA_BOOTSTRAP_SERVERS="localhost:9092"
-KAFKA_TOPIC="web_telemetry"
+KAFKA_BROKERS="localhost:9092"
+KAFKA_EXAM_TOPIC="exam-telemetry"
 ```
 
 ---
 
-## 🚀 Running TestHub
-
-From the repository root:
+## 🚀 Development & Production
 
 ```bash
-# Start TestHub development server on port 3001
+# Run TestHub in development mode (port 3001)
 npm run dev:testhub
 
-# Start production build on port 3001
+# Build TestHub in Next.js standalone mode
+npm run build --workspace=testhub
+
+# Start production server
 npm run start:testhub
 ```
-
-Open [http://localhost:3001](http://localhost:3001) to begin taking mock tests!
-

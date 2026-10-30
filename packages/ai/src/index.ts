@@ -1,4 +1,4 @@
-import { InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
+import { ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { getBedrockClient } from "./bedrock";
 
 export * from "./bedrock";
@@ -31,47 +31,67 @@ export interface ExamAIResponse {
 
 // Default exam AI configuration
 export const defaultExamAIConfig: ExamAIConfig = {
-  modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
+  modelId: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
   maxTokens: 2000,
-  temperature: 0.7,
+  temperature: 0.2,
   topP: 0.9,
 };
 
 // Helper to invoke Bedrock model for exam-specific tasks
 export async function invokeExamModel(
   prompt: string,
-  config: ExamAIConfig = defaultExamAIConfig
+  config: Partial<ExamAIConfig> = defaultExamAIConfig
 ): Promise<string> {
   const client = getBedrockClient();
+  const finalConfig: ExamAIConfig = { ...defaultExamAIConfig, ...config };
 
-  const requestBody = {
-    anthropic_version: "bedrock-2023-05-31",
-    max_tokens: config.maxTokens,
-    temperature: config.temperature,
-    top_p: config.topP,
-    messages: [
-      {
-        role: "user",
-        content: [
+  const modelsToTry = Array.from(
+    new Set([
+      finalConfig.modelId,
+      "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "amazon.nova-lite-v1:0",
+    ].filter(Boolean))
+  );
+
+  let lastError: any = null;
+  for (const modelId of modelsToTry) {
+    try {
+      const inferenceConfig: any = {
+        maxTokens: finalConfig.maxTokens,
+      };
+      if (modelId.includes("anthropic")) {
+        // Anthropic Claude on Bedrock enforces specifying only one of temperature or topP
+        inferenceConfig.temperature = finalConfig.temperature ?? 0.1;
+      } else {
+        inferenceConfig.temperature = finalConfig.temperature ?? 0.2;
+        if (finalConfig.topP !== undefined) {
+          inferenceConfig.topP = finalConfig.topP;
+        }
+      }
+
+      const command = new ConverseCommand({
+        modelId,
+        messages: [
           {
-            type: "text",
-            text: prompt,
+            role: "user",
+            content: [{ text: prompt }],
           },
         ],
-      },
-    ],
-  };
+        inferenceConfig,
+      });
 
-  const command = new InvokeModelCommand({
-    modelId: config.modelId,
-    body: JSON.stringify(requestBody),
-  });
+      const response = await client.send(command);
+      const text = response.output?.message?.content?.[0]?.text;
+      if (text) {
+        return text;
+      }
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[AI] Model ${modelId} invocation warning:`, err?.message || err);
+    }
+  }
 
-  const response = await client.send(command);
-  const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-
-  // Extract text from Claude response
-  return responseBody.content[0].text;
+  throw lastError || new Error("All Bedrock AI models failed to return a response.");
 }
 
 // Exam-specific AI service functions

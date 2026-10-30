@@ -10,7 +10,41 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-PDF%20Parser-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://www.docker.com/)
 
-**StudyHub** is an all-in-one educational and computer-based testing (CBT) platform designed for students preparing for school board examinations and competitive entrance exams (**JEE Main**, **JEE Advanced**, **NEET**, **CBSE**). Built as a high-performance **Turborepo monorepo**, StudyHub integrates digital textbook reading, an AI study assistant powered by **AWS Bedrock** and **pgvector**, past year question paper (PYQ) processing, a full CBT test simulator (**TestHub**), a dedicated Python **FastAPI PDF parsing microservice**, and an **Apache Kafka telemetry pipeline**.
+**StudyHub** is a next-generation educational and Computer-Based Testing (CBT) platform engineered for students preparing for school board examinations and high-stakes national entrance exams (**JEE Main**, **JEE Advanced**, **NEET**, **CBSE**). Built as an enterprise-grade **Turborepo monorepo**, StudyHub pairs a digital textbook reader and textbook-grounded RAG study assistant with a high-fidelity CBT exam simulator (**TestHub**), advanced behavioral diagnostic telemetry, automated AI mentorship via **AWS Bedrock**, an **Apache Kafka event pipeline**, and a Python **FastAPI PDF parsing microservice**.
+
+---
+
+## 📸 Visual Product Walkthrough
+
+Experience the complete end-to-end examination and learning journey:
+
+### 1. 📚 Paper Library & Discovery
+Filter past year examination papers by **Exam Type** (JEE Main, JEE Advanced, NEET), **Year** (2002–2025), and **Subject** (Physics, Chemistry, Mathematics, Biology).
+![Exam Paper Library](screenshots/flow-2438/01_papers_library.png)
+
+### 2. 📝 Official Bilingual Instructions
+Authentic exam instructions matching national testing agencies (NTA) with duration, marking rules (+4 / -1 / 0), and navigation guidelines.
+![Bilingual Exam Instructions](screenshots/flow-2438/03_exam_instructions.png)
+
+### 3. 🎯 Authentic CBT Test Interface & Live Simulation
+Real-time countdown timer, high-fidelity KaTeX math equations, diagram support, single/multiple-choice MCQs, and numerical inputs with error tolerances.
+![Live CBT Examination Screen](screenshots/flow-2438/05_exam_cbt_interface_q1.png)
+
+### 4. 🗂️ 5-State Question Palette & Subject Navigation
+Real-time state tracking: ⚪ *Not Visited*, 🔴 *Not Answered*, 🟢 *Answered*, 🟣 *Marked for Review*, and 🟣🟢 *Answered & Marked for Review*.
+![Question Palette & Section Switching](screenshots/flow-2438/07_exam_palette_status.png)
+
+### 5. 🏆 Instant Scorecard & Section Breakdown
+Comprehensive summary displaying total awarded score, percentage accuracy, time spent per subject, and candidate rank estimation.
+![Results Scorecard](screenshots/flow-2438/09_exam_results_scorecard.png)
+
+### 6. 📊 6-Section Diagnostic Analytics & Interactive Performance Charts
+In-depth behavioral analysis classifying time traps, guesswork, rushing patterns, and topic-by-topic mastery curves.
+![Detailed Diagnostic Analytics](screenshots/flow-2438/10_detailed_analysis.png)
+
+### 7. 🤖 AI Mentor Strategic Insights (AWS Bedrock)
+Personalized post-exam mentorship powered by Claude 3.5 Sonnet / Haiku diagnosing root causes of mistakes and recommending focused high-yield revision topics.
+![AI Guidance & Strategic Insights](screenshots/flow-2438/11_ai_guidance_insights.png)
 
 ---
 
@@ -22,10 +56,10 @@ StudyHub Monorepo
 │   ├── web/                    # Digital textbook reader, PYQ browser, S3 uploads & RAG chatbot (:3000)
 │   └── testhub/                # CBT examination engine, JEE past paper tests & AI analytics (:3001)
 ├── packages/
-│   ├── ai/                     # AWS Bedrock runtime (Titan Embeddings V2 1024-dim, Claude 3 Sonnet)
-│   ├── auth/                   # Shared NextAuth.js, cross-app SSO cookies, bcrypt & role security
-│   ├── db/                     # Prisma ORM schema (PostgreSQL + pgvector) & dual-db sync
-│   ├── exam-core/              # Canonical CBT exam schemas, topic taxonomy & scoring logic
+│   ├── ai/                     # AWS Bedrock runtime (Titan Embeddings V2 1024-dim, Claude 3.5 Sonnet)
+│   ├── auth/                   # Shared NextAuth.js, cross-app SSO cookies, bcrypt, OTP & RBAC
+│   ├── db/                     # Prisma ORM schema (PostgreSQL + pgvector) & database migrations
+│   ├── exam-core/              # Canonical CBT exam schemas, topic taxonomy & behavioral classification
 │   ├── telemetry/              # Apache Kafka telemetry producer & React tracking hooks
 │   ├── ui/                     # Shared React 19 UI component library, KaTeX math & Tailwind v4
 │   ├── eslint-config/          # Shared ESLint 9 Flat Config presets
@@ -37,27 +71,31 @@ StudyHub Monorepo
 
 ---
 
-## ✨ Applications & Services Overview
+## ✨ Flagship Applications & Features
 
 ### 1. 🌐 StudyHub Web (`apps/web` — Port 3000)
-- **Digital Textbooks**: Browse NCERT and State Board textbooks by Board, Class, Subject, Book, and Chapter.
-- **In-Browser PDF Reader**: Smooth page navigation, zooming, and downloading via `react-pdf`.
-- **RAG AI Chatbot**: Embedded assistant with inline citations and one-click page navigation to original textbook pages.
-- **Admin Document Upload**: Presigned Amazon S3 document uploads secured by NextAuth.
+- **Digital Textbook Repository**: Multi-tiered catalog structured by Board, Class, Subject, Book, and Chapter.
+- **In-Browser PDF Reader**: Smooth page navigation, zooming, and downloading powered by `react-pdf` and `pdfjs-dist`.
+- **RAG AI Chatbot**: Embedded assistant querying `PageEmbedding` vectors (`vector(1024)`) in PostgreSQL via Amazon Titan Embeddings V2, featuring **one-click page citations** directly to textbook pages.
+- **Admin Document Upload**: Presigned Amazon S3 document uploads secured by NextAuth and role-based permissions.
 - Read more in [apps/web/README.md](apps/web/README.md).
 
 ### 2. 🎯 TestHub CBT Platform (`apps/testhub` — Port 3001)
-- **National Exam Simulation**: Authentic CBT test interface matching NTA / official exam environments.
-- **Question Types**: Single-choice MCQ, multiple-choice MCQ, and numerical value inputs with error margins.
-- **Diagram Canvas**: In-browser drawing pad to sketch circuit diagrams, free-body diagrams, and scratch work.
-- **AI Solution Explanations**: Post-exam analysis chatbot breaking down solutions step-by-step.
-- **Performance Analytics**: Real-time topic accuracy metrics and scoring calculation (+4 / -1 / 0).
+- **National Exam Simulation**: True-to-life CBT test interface matching NTA / official national exam specifications.
+- **Question Types**: Single-choice MCQ, multiple-choice MCQ, and numerical value inputs with floating-point tolerance ranges.
+- **Diagram Scratchpad Canvas**: In-browser drawing pad to annotate circuit diagrams, free-body diagrams, and scratch work.
+- **6-Section Behavioral Diagnostics**: Real-time behavioral engine detecting:
+  - ⏳ **Time Traps**: Questions with excessive time spent resulting in incorrect answers.
+  - ⚡ **Rushing Mistakes**: Questions answered under 20 seconds resulting in negative marks.
+  - 🎲 **Guesswork Detection**: Option switches and pattern anomalies.
+- **Hot Caching with Upstash Redis**: Sub-millisecond attempt lookup and session persistence.
+- **AI Solution Explanations**: Post-exam analysis chatbot breaking down step-by-step mathematical proofs and concepts.
 - Read more in [apps/testhub/README.md](apps/testhub/README.md).
 
 ### 3. 🔬 PDF Parser Microservice (`services/pdf-parser` — Port 8001)
-- **STEM Layout Detection**: Detects single vs. multi-column layouts and orders blocks correctly.
+- **STEM Layout Detection**: Detects single vs. multi-column layouts and orders reading blocks sequentially.
 - **Watermark & Ad Stripping**: Automatically removes coach-institute watermarks, promo headers, and footers.
-- **Diagram Extraction**: Isolates vector schematics and raster images, converting them into compressed `.webp` assets.
+- **Diagram Extraction**: Isolates vector schematics and raster images, converting them into optimized `.webp` or vector SVG assets.
 - **Formula Protection**: Preserves LaTeX mathematical symbols for KaTeX rendering.
 - Read more in [services/pdf-parser/README.md](services/pdf-parser/README.md).
 
@@ -67,13 +105,14 @@ StudyHub Monorepo
 
 | Domain | Technologies |
 | :--- | :--- |
-| **Frameworks** | Next.js 16.2.0 (App Router), React 19.2.0, FastAPI (Python 3.11+) |
+| **Frameworks** | Next.js 16.2.0 (App Router, Standalone mode), React 19.2.0, FastAPI (Python 3.11+) |
 | **Monorepo Tooling** | Turborepo 2.9, npm Workspaces |
-| **Styling & UI** | Tailwind CSS v4, Lucide React, Framer Motion, KaTeX |
+| **Styling & UI** | Tailwind CSS v4, Lucide React, Framer Motion, KaTeX Math Rendering |
 | **Database & Vector Search** | PostgreSQL 16+ (Neon & Docker), Prisma ORM, `pgvector` (`vector(1024)`) |
-| **AI / LLM Infrastructure** | AWS Bedrock (Amazon Titan Embeddings V2, Claude 3 Sonnet), Google Gemini Vision |
+| **Distributed Caching & State** | Upstash Redis REST API, in-memory LRU fallback |
+| **AI / LLM Infrastructure** | AWS Bedrock (Amazon Titan Embeddings V2, Claude 3.5 Sonnet / Haiku), Google Gemini |
 | **Storage & Delivery** | Amazon S3, Amazon CloudFront CDN |
-| **Authentication** | NextAuth.js v4 (Cross-Port SSO, Google OAuth, Salted bcrypt) |
+| **Authentication & RBAC** | NextAuth.js v4 (Cross-App SSO, Google OAuth, Salted bcrypt, Resend OTP) |
 | **Telemetry & Streaming** | Apache Kafka, ZooKeeper, KafkaJS |
 | **Containers & CI** | Docker, Docker Compose, GitHub Actions (`build.yml`) |
 
@@ -115,27 +154,26 @@ This spins up:
 
 ### 4. Configure Environment Variables
 
-Copy `.env.example` to `.env` or set up app-specific files:
+Copy `.env.example` to `.env`:
 
 ```bash
 cp .env.example .env
-cp apps/web/.env.example apps/web/.env
-cp apps/testhub/.env.example apps/testhub/.env
-cp packages/db/.env.example packages/db/.env
-cp services/pdf-parser/.env.example services/pdf-parser/.env
 ```
 
-Ensure your `.env` contains:
+Ensure your `.env` contains your database and AWS credentials:
 ```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/studybyd?schema=public"
+DATABASE_URL="postgresql://postgres:password@localhost:5432/studyhub?schema=public"
 AWS_REGION="us-east-1"
 AWS_BUCKET_NAME="your-s3-bucket-name"
 AWS_ACCESS_KEY_ID="your-aws-access-key-id"
 AWS_SECRET_ACCESS_KEY="your-aws-secret-access-key"
-NEXTAUTH_SECRET="your-nextauth-secret-key"
+NEXTAUTH_SECRET="your-generated-nextauth-secret-key"
+UPSTASH_REDIS_REST_URL="https://your-upstash-instance.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your-upstash-token"
+RESEND_API_KEY="re_your_resend_api_key"
 ```
 
-### 5. Setup Database & Prisma
+### 5. Setup Database & Prisma Migrations
 
 ```bash
 # Generate Prisma Client
@@ -144,17 +182,17 @@ npm run db:generate
 # Enable pgvector extension
 npm run init:vector
 
-# (Optional) Apply migrations
+# Apply database migrations
 cd packages/db && npx prisma migrate deploy && cd ../..
 ```
 
 ### 6. Run the Applications
 
 ```bash
-# Run all monorepo apps simultaneously:
+# Run all applications simultaneously via Turborepo:
 npm run dev
 
-# Or run specific applications:
+# Or run specific applications individually:
 npm run dev:web       # StudyHub Web on http://localhost:3000
 npm run dev:testhub   # TestHub CBT on http://localhost:3001
 npm run parser:dev    # PDF Parser on http://localhost:8001
@@ -163,8 +201,6 @@ npm run parser:dev    # PDF Parser on http://localhost:8001
 ---
 
 ## 🛠️ Monorepo Scripts Reference
-
-Run these scripts from the repository root:
 
 | Command | Action |
 | :--- | :--- |
@@ -178,13 +214,14 @@ Run these scripts from the repository root:
 | `npm run lint` | Runs ESLint across all monorepo workspaces |
 | `npm run format` | Formats all code using Prettier |
 | `npm run db:generate` | Generates the Prisma client inside `packages/db` |
+| `npm run ingest:pyq` | Ingests previous year question papers into the database |
 | `npm run parser:dev` | Launches the Python FastAPI PDF parsing microservice |
 
 ---
 
 ## 📡 Apache Kafka Telemetry Setup
 
-StudyHub publishes user interaction telemetry (page views, exam events, answer selections) directly to Apache Kafka:
+StudyHub publishes candidate interaction telemetry (page transitions, question palette events, answer modifications, and review flags) directly to Apache Kafka:
 
 1. **Start Kafka**:
    ```bash
@@ -192,32 +229,17 @@ StudyHub publishes user interaction telemetry (page views, exam events, answer s
    ```
 2. **Listen to telemetry events live**:
    ```bash
-   docker exec -it studyhub_kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic web_telemetry --from-beginning
+   docker exec -it studyhub_kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic exam-telemetry --from-beginning
    ```
-3. Read [packages/telemetry/README.md](packages/telemetry/README.md) for producer and consumer details.
 
 ---
 
-## 🚢 CI/CD & Testing
+## 🚢 CI/CD & Production Verification
 
-StudyHub uses GitHub Actions to ensure code quality on every Pull Request:
+StudyHub uses GitHub Actions to verify type safety and code quality:
 - **Workflow**: [.github/workflows/build.yml](.github/workflows/build.yml)
 - **Validation**: Automatically runs `npm install`, `npm run db:generate`, and `npm run build` on PRs targeting `main`.
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository.
-2. Create your feature branch (`git checkout -b feature/amazing-feature`).
-3. Verify type-checking and linting pass:
-   ```bash
-   npm run check-types
-   npm run lint
-   ```
-4. Commit your changes (`git commit -m 'feat: Add amazing feature'`).
-5. Push to the branch (`git push origin feature/amazing-feature`).
-6. Open a Pull Request.
+- **Pre-commit Checks**: Run `npm run check-types` and `npm run lint` locally before submitting pull requests.
 
 ---
 

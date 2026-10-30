@@ -13,16 +13,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // Send to Kafka via @repo/telemetry
-    await sendTelemetryEvent(body as unknown as Record<string, unknown>);
+    // Send to Kafka asynchronously without blocking the client HTTP thread
+    sendTelemetryEvent(body as unknown as Record<string, unknown>).catch((err) => {
+      console.warn('[Web Telemetry API] Non-blocking Kafka dispatch warning:', err?.message || err);
+    });
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('Error in telemetry API:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.warn('[Web Telemetry API] Error processing event:', error);
+    return NextResponse.json({ success: true }, { status: 200 });
   }
 }
 

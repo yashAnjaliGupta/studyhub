@@ -4,6 +4,7 @@ import { BedrockRuntimeClient, ConverseStreamCommand, InvokeModelCommand } from 
 import { TitanV2EmbeddingProvider } from "@repo/ai";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@repo/auth";
+import { redis } from "../../../lib/redis";
 
 const embeddingProvider = new TitanV2EmbeddingProvider();
 
@@ -354,6 +355,26 @@ User Question: ${query}
 
 AI Response:`;
 
+    // Fetch latest student exam telemetry diagnosis from Redis (< 2ms)
+    let studentExamContext = "";
+    try {
+      const studentId = (session.user as any)?.id || session.user.email;
+      if (studentId) {
+        const rawExamReport = await redis.get(`student:${studentId}:latest_exam_analysis`);
+        if (rawExamReport) {
+          const parsed = JSON.parse(rawExamReport);
+          const report = parsed.humanReadableReport || parsed.report || parsed;
+          studentExamContext = `
+STUDENT'S RECENT EXAM DIAGNOSIS (Use subtly to reinforce struggle areas):
+- Recent Exam: ${report.paperTitle || 'Practice Exam'} (Score: ${report.scores?.totalAwarded ?? 'N/A'}/${report.scores?.maxPossible ?? 'N/A'})
+- Identified Weak Topics: ${report.weakTopics?.map((w: any) => w.topic).join(", ") || "None"}
+- Known Behavioral Traps: ${report.behavioralTags?.timeSinksCount ?? 0} time sinks, ${report.behavioralTags?.secondGuessPenaltiesCount ?? 0} second-guessing mistakes.`;
+        }
+      }
+    } catch (err) {
+      console.warn("[Chat API] Failed to fetch student telemetry context from Redis:", err);
+    }
+
     // 4. Return ReadableStream for real-time text streaming to frontend
     const stream = new ReadableStream({
       async start(controller) {
@@ -376,6 +397,7 @@ AI Response:`;
               const systemInstruction = `You are an expert AI Study Assistant for Students.
 You are given the COMPLETE context of an ENTIRE study chapter/question paper across all its pages.
 Answer the user's question thoroughly, intelligently, and accurately based on the WHOLE document context.
+${studentExamContext}
 
 Universal Instructions:
 1. Base your answer strictly on facts present in the whole document regardless of subject (Science, Math, History, Literature, Question Papers, etc.).
@@ -383,6 +405,7 @@ Universal Instructions:
 3. Structure your response with clean Markdown headers, bold terms, and organized bullet points.
 4. If asked to generate quiz questions or practice questions, generate high-quality questions based on the actual concepts in this specific document, with options (A, B, C, D), correct answers, and [Page X] citations.
 5. If the user asks a concept or explanation question, provide a detailed, well-explained answer with clear headings and [Page X] citations.
+${studentExamContext ? "6. If the student asks about a concept overlapping with their weak topics from recent exams, provide extra intuitive conceptual clarity and step-by-step reinforcement." : ""}
 
 Complete Chapter Context:
 ${promptContext}`;

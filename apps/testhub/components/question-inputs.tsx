@@ -15,6 +15,7 @@ export interface QuestionInputProps {
   options: OptionItem[];
   answer: any; // number | number[] | string | undefined
   onChange: (value: any) => void;
+  onOptionHover?: (optLabelOrId: string, isEntering: boolean) => void;
 }
 
 export function QuestionTypeBadge({ type }: { type: QuestionType }) {
@@ -57,6 +58,7 @@ export function QuestionInputRenderer({
   options,
   answer,
   onChange,
+  onOptionHover,
 }: QuestionInputProps) {
   switch (type) {
     case 'mcq_multiple':
@@ -66,6 +68,7 @@ export function QuestionInputRenderer({
           options={options}
           selectedIndices={Array.isArray(answer) ? answer : []}
           onChange={onChange}
+          onOptionHover={onOptionHover}
         />
       );
     case 'numerical':
@@ -92,6 +95,7 @@ export function QuestionInputRenderer({
           options={options}
           selectedIndex={typeof answer === 'number' ? answer : undefined}
           onChange={onChange}
+          onOptionHover={onOptionHover}
         />
       );
   }
@@ -105,11 +109,13 @@ function SingleChoiceInput({
   options,
   selectedIndex,
   onChange,
+  onOptionHover,
 }: {
   questionId: string;
   options: OptionItem[];
   selectedIndex?: number;
   onChange: (index: number) => void;
+  onOptionHover?: (optLabelOrId: string, isEntering: boolean) => void;
 }) {
   const hasAnyVisual = options.some(
     (opt) => typeof opt === 'object' && Boolean(opt.imageUrl || opt.diagramSvg)
@@ -128,9 +134,13 @@ function SingleChoiceInput({
         const visual =
           typeof option === 'object' ? option.diagramSvg || option.imageUrl : null;
 
+        const optLabel = String.fromCharCode(65 + i);
+
         return (
           <label
             key={`${questionId}_single_${i}`}
+            onMouseEnter={() => onOptionHover?.(optLabel, true)}
+            onMouseLeave={() => onOptionHover?.(optLabel, false)}
             className={`flex cursor-pointer items-start gap-3.5 rounded-xl border p-4 transition-all ${
               isSelected
                 ? 'border-[#0875f9] bg-blue-50/70 shadow-sm ring-2 ring-[#0875f9]/20'
@@ -185,11 +195,13 @@ function MultiChoiceInput({
   options,
   selectedIndices,
   onChange,
+  onOptionHover,
 }: {
   questionId: string;
   options: OptionItem[];
   selectedIndices: number[];
   onChange: (indices: number[]) => void;
+  onOptionHover?: (optLabelOrId: string, isEntering: boolean) => void;
 }) {
   const toggleOption = (idx: number) => {
     const next = selectedIndices.includes(idx)
@@ -220,9 +232,13 @@ function MultiChoiceInput({
           const visual =
             typeof option === 'object' ? option.diagramSvg || option.imageUrl : null;
 
+          const optLabel = String.fromCharCode(65 + i);
+
           return (
             <label
               key={`${questionId}_multi_${i}`}
+              onMouseEnter={() => onOptionHover?.(optLabel, true)}
+              onMouseLeave={() => onOptionHover?.(optLabel, false)}
               className={`flex cursor-pointer items-start gap-3.5 rounded-xl border p-4 transition-all ${
                 isSelected
                   ? 'border-purple-600 bg-purple-50/60 shadow-sm ring-2 ring-purple-500/20'
